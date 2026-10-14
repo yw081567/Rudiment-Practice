@@ -1377,14 +1377,14 @@
           const bY2 = lineStaffY - (23 * scaleFactor);
 
           if (rudiment.type === 'beamed' && notePoints.length >= 2) {
-            const p0 = notePoints[r.beamPrimary[0]], p1 = notePoints[r.beamPrimary[1]];
+            const p0 = notePoints[rudiment.beamPrimary[0]], p1 = notePoints[rudiment.beamPrimary[1]];
             svgElements.push(`<line x1="${p0.x + 4 * scaleFactor}" y1="${bY1}" x2="${p1.x + 4 * scaleFactor}" y2="${bY1}" stroke="#0f172a" stroke-width="3"/>`);
             if (rudiment.beamSecFull) {
-              const s0 = notePoints[r.beamSecFull[0]], s1 = notePoints[r.beamSecFull[1]];
+              const s0 = notePoints[rudiment.beamSecFull[0]], s1 = notePoints[rudiment.beamSecFull[1]];
               svgElements.push(`<line x1="${s0.x + 4 * scaleFactor}" y1="${bY2}" x2="${s1.x + 4 * scaleFactor}" y2="${bY2}" stroke="#0f172a" stroke-width="2.5"/>`);
             }
             if (rudiment.beamSecPartial) {
-              const pNode = notePoints[r.beamSecPartial[0]];
+              const pNode = notePoints[rudiment.beamSecPartial[0]];
               const pLen = rudiment.beamSecPartial[1] * scaleFactor;
               svgElements.push(`<line x1="${pNode.x + 4 * scaleFactor}" y1="${bY2}" x2="${pNode.x + 4 * scaleFactor + pLen}" y2="${bY2}" stroke="#0f172a" stroke-width="2.5"/>`);
             }
