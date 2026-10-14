@@ -1,0 +1,1789 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Rudiment 練習譜產生器</title>
+<style>
+  :root {
+    --paper-bg: #ffffff;
+    --paper-line: #334155;
+    --ink: #0f172a;
+    --hand-r: #dc2626; /* 右手 紅色 */
+    --hand-l: #2563eb; /* 左手 藍色 */
+    --drawer-bg: #ffffff;
+    --border-color: #e2e8f0;
+    --primary: #0284c7;
+    --primary-hover: #0369a1;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; -webkit-tap-highlight-color: transparent; }
+  
+  body {
+    background-color: #f1f5f9;
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* 頂部導覽列 */
+  header {
+    background: #ffffff;
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  }
+  .app-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .app-title {
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: #1e293b;
+  }
+  
+  .export-btn {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #e0f2fe;
+    color: #0369a1;
+    font-weight: 800;
+    border: 1px solid #bae6fd;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    transition: all 0.15s;
+  }
+  .export-btn:active {
+    transform: scale(0.95);
+    background: #bae6fd;
+  }
+
+  .btn-open-options {
+    background: #0f172a;
+    color: #ffffff;
+    border: none;
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    touch-action: manipulation;
+  }
+  .btn-open-options:active { transform: scale(0.96); }
+
+  /* 快捷開關列 */
+  .quick-options-bar {
+    background: #ffffff;
+    border-bottom: 1px solid var(--border-color);
+    padding: 8px 14px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #334155;
+  }
+  .quick-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    padding: 4px 10px;
+  }
+  .quick-checkbox-label:active { background: #e2e8f0; }
+  .quick-checkbox-label input {
+    accent-color: var(--primary);
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+  }
+
+  /* 白紙樂譜主區域 */
+  main {
+    flex: 1;
+    padding: 12px 10px calc(130px + env(safe-area-inset-bottom, 20px));
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .paper-sheet {
+    background: var(--paper-bg);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    border: 1px solid #e2e8f0;
+    padding: 18px 12px;
+    min-height: 380px;
+    width: 100%;
+    position: relative;
+  }
+  
+  /* 譜面標頭區塊 */
+  .sheet-header {
+    text-align: center;
+    margin-bottom: 14px;
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 8px;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+  }
+  .sheet-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0f172a;
+  }
+  
+  /* 列印用的 BPM 標示 (預設隱藏) */
+  .print-bpm-display {
+    display: none;
+    position: absolute;
+    left: 0;
+    bottom: 8px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #0f172a;
+    align-items: center;
+    gap: 4px;
+  }
+  .print-bpm-display svg {
+    width: 14px;
+    height: 24px;
+  }
+  
+  .sheet-score-area {
+    width: 100%;
+    overflow-x: hidden;
+    padding: 4px 0;
+  }
+  svg.main-score-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  /* 底部固定停靠列 */
+  .bottom-dock {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border-color);
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+    z-index: 30;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
+  }
+  .bottom-dock-inner {
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .dock-metro {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f1f5f9;
+    padding: 6px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+  }
+  .dock-metro-btn {
+    background: #10b981;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    width: 34px;
+    height: 34px;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  .dock-metro-btn.active { background: #ef4444; }
+  .dock-metro-bpm {
+    font-weight: 800;
+    font-size: 1rem;
+    min-width: 32px;
+    text-align: center;
+  }
+
+  .btn-main-generate {
+    flex: 1;
+    background: linear-gradient(135deg, #0284c7, #2563eb);
+    color: #ffffff;
+    border: none;
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+    text-align: center;
+    touch-action: manipulation;
+  }
+  .btn-main-generate:active { transform: scale(0.98); background: #1d4ed8; }
+
+  /* 右側抽屜 */
+  .drawer-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(4px);
+    z-index: 50;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.25s ease;
+  }
+  .drawer-overlay.active { opacity: 1; visibility: visible; }
+
+  .drawer-panel {
+    position: fixed;
+    top: 0; right: 0;
+    width: 90%;
+    max-width: 440px;
+    height: 100vh;
+    background: var(--drawer-bg);
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.28s ease;
+    box-shadow: -6px 0 24px rgba(0,0,0,0.15);
+  }
+  .drawer-panel.active { transform: translateX(0); }
+
+  .drawer-header {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+  }
+  .drawer-header h3 { font-size: 1.1rem; font-weight: 700; color: #0f172a; }
+  .btn-close-drawer {
+    background: #e2e8f0;
+    border: none;
+    border-radius: 50%;
+    width: 32px; height: 32px;
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+
+  .drawer-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 18px calc(140px + env(safe-area-inset-bottom, 30px));
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .picker-select {
+    width: 100%;
+    background: #f8fafc;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 11px 14px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #0f172a;
+    outline: none;
+  }
+
+  .btn-action-small {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+  }
+  .btn-action-small:active { background: #e2e8f0; }
+  .btn-selected-toggle {
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1.5px solid #38bdf8;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: all 0.15s ease;
+  }
+  .btn-selected-toggle.active {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+  }
+  .quick-chips-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .btn-quick-chip {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-quick-chip.active {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+  }
+
+  .rudiment-card-item {
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .rudiment-card-item.selected {
+    border-color: #0284c7;
+    background: #f0f9ff;
+  }
+  .rudiment-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .rudiment-item-name { font-size: 0.9rem; font-weight: 700; }
+  .rudiment-check-box {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 1.5px solid #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    font-size: 0.75rem;
+    color: #fff;
+    font-weight: bold;
+  }
+  .rudiment-card-item.selected .rudiment-check-box {
+    background: #0284c7;
+    border-color: #0284c7;
+  }
+  .rudiment-mini-score {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 4px;
+    display: flex;
+    justify-content: center;
+  }
+
+  /* 載入中遮罩 */
+  #loadingOverlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(255,255,255,0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #0f172a;
+    display: none;
+  }
+
+  /* 手機螢幕響應式優化 (寬度小於等於 600px) */
+  @media screen and (max-width: 600px) {
+    main {
+      /* 手機版雙層控制列，留出適當的捲動空間 */
+      padding-bottom: calc(155px + env(safe-area-inset-bottom, 20px)) !important;
+    }
+    .bottom-dock {
+      padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+    .bottom-dock-inner {
+      flex-direction: column !important;
+      gap: 8px !important;
+    }
+    .btn-generate-top {
+      width: 100% !important;
+      padding: 13px 14px !important;
+      font-size: 1.05rem !important;
+      border-radius: 12px !important;
+    }
+    .dock-sub-row {
+      display: flex !important;
+      width: 100% !important;
+      gap: 8px !important;
+      align-items: center !important;
+    }
+    .dock-metro {
+      flex: 1 1 auto !important;
+      height: 52px !important;
+      padding: 6px 12px !important;
+      justify-content: space-between !important;
+      border-radius: 12px !important;
+    }
+    #btnCustomEdit {
+      flex: 0 0 auto !important;
+      height: 52px !important;
+      padding: 0 16px !important;
+      font-size: 0.95rem !important;
+      border-radius: 12px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      white-space: nowrap !important;
+    }
+  }
+
+  /* 平板與電腦螢幕 (寬度大於 600px)，維持原先 100 分單排設計 */
+  @media screen and (min-width: 601px) {
+    .dock-sub-row {
+      display: contents;
+    }
+    .dock-metro {
+      order: 1;
+    }
+    .btn-generate-top {
+      order: 2;
+      flex: 1;
+    }
+    #btnCustomEdit {
+      order: 3;
+      flex: 0 0 auto;
+    }
+  }
+
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay">請稍候...</div>
+
+<header>
+  <div class="app-title-group">
+    <span class="app-title" id="appHeaderTitle">🥁 Rudiment組合練習</span>
+    <button type="button" class="export-btn" onclick="triggerExport()">匯出圖片</button>
+  </div>
+  <button type="button" class="btn-open-options" onclick="openOptionsDrawer()">⚙️ 練習選項</button>
+</header>
+
+<div class="quick-options-bar">
+  <label class="quick-checkbox-label">
+    <input type="checkbox" id="toggleSticking" checked onchange="renderMainScore()">
+    <span>標註 R/L</span>
+  </label>
+  <label class="quick-checkbox-label">
+    <input type="checkbox" id="toggleAccents" checked onchange="renderMainScore()">
+    <span>標註重音</span>
+  </label>
+  <label class="quick-checkbox-label">
+    <input type="checkbox" id="toggleNames" onchange="renderMainScore()">
+    <span>標註 Rudiment 名稱</span>
+  </label>
+  <button type="button" class="btn-selected-toggle" style="background:#e0f2fe; color:#0369a1; border-color:#38bdf8; padding:5px 12px; font-weight:800;" onclick="randomizeAccents()">
+    🎲 隨機重音
+  </button>
+</div>
+
+<main>
+  <div id="customEditBanner" style="display:none; background:#f0fdf4; border:1.5px solid #22c55e; border-radius:10px; padding:10px 14px; margin-bottom:12px; justify-content:space-between; align-items:center; box-shadow:0 2px 8px rgba(34,197,94,0.15);">
+    <span style="font-size:0.85rem; font-weight:800; color:#15803d;">✏️ 編輯中：點擊字母改R/L，點音符改重音，點標題改名字</span>
+    <button type="button" class="btn-selected-toggle" style="background:#22c55e; color:#fff; border-color:#22c55e; padding:6px 14px; font-weight:800; font-size:0.9rem;" onclick="swapAllStickings()">🔄 手法對調</button>
+  </div>
+  
+  <div class="paper-sheet" id="printArea" style="background: white; padding: 20px;">
+    <div class="sheet-header">
+      <div class="print-bpm-display" id="printBpmWrapper">
+         <svg viewBox="0 0 10 24" xmlns="http://www.w3.org/2000/svg">
+             <ellipse cx="4" cy="18" rx="4" ry="3" fill="#0f172a" transform="rotate(-20 4 18)"/>
+             <line x1="7.5" y1="18" x2="7.5" y2="4" stroke="#0f172a" stroke-width="1.2"/>
+         </svg>
+         = <span id="printBpmValue"></span>
+      </div>
+      <div class="sheet-title" id="paperTitle" onclick="editPaperTitle()" style="cursor:pointer;" title="點擊編輯標題">Rudiment組合練習</div>
+    </div>
+    <div class="sheet-score-area">
+      <div id="paperSvgContainer"><div style="text-align:center; padding:90px 20px; color:#94a3b8; font-weight:600; font-size:1.05rem;">點擊下方「🎲 隨機生成新組合」開始練習</div></div>
+    </div>
+  </div>
+</main>
+
+<div class="bottom-dock">
+  <div class="bottom-dock-inner">
+    <button type="button" class="btn-main-generate btn-generate-top" onclick="generateNewExercise()">🎲 隨機生成新組合</button>
+    <div class="dock-sub-row">
+      <div class="dock-metro" style="background:#334155; border:none; padding:8px; flex: 0 0 192px; justify-content: flex-start; border-radius: 14px; overflow: hidden; height: 60px;">
+        <button type="button" class="dock-metro-btn" id="btnMetroToggle" style="width:34px; height:34px; border-radius:50%; background:#22c55e; flex-shrink:0; font-size:1rem; box-shadow: 0 2px 6px rgba(0,0,0,0.2); padding:0; display:flex; align-items:center; justify-content:center; line-height:1; margin-right:0;">▶</button>
+        <div style="display:flex; align-items:center; color:#f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; height: 100%; margin: 0 auto;">
+          <button type="button" id="btnBpmMinus" style="background:transparent; border:none; color:#cbd5e1; font-size:2.6rem; font-weight:300; padding:0 4px; margin-top:-5px; cursor:pointer; touch-action:manipulation; line-height:1; display:flex; align-items:center; justify-content:center;">-</button>
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width: 60px;">
+            <div style="display:flex; align-items:baseline; justify-content:center; width:100%;">
+              <span class="dock-metro-bpm" id="metroBpmLabel" style="font-size:1.9rem; font-weight:400; line-height:1; cursor:pointer; font-variant-numeric: tabular-nums; text-align:center; min-width:54px; letter-spacing:-1px;" onclick="editBpm()">90</span>
+            </div>
+            <span style="font-size:0.72rem; color:#94a3b8; font-weight:600; margin-top:2px;">BPM</span>
+          </div>
+          <button type="button" id="btnBpmPlus" style="background:transparent; border:none; color:#cbd5e1; font-size:2.2rem; font-weight:300; padding:0 6px 0 6px; margin-top:-1px; cursor:pointer; touch-action:manipulation; line-height:1; display:flex; align-items:center; justify-content:center;">+</button>
+        </div>
+      </div>
+      <button type="button" id="btnCustomEdit" class="btn-main-generate" style="flex:0 0 auto; background:#475569; padding:14px 16px; box-shadow:0 4px 14px rgba(71,85,105,0.35);" onclick="toggleCustomEditMode()">✏️ 自定義</button>
+    </div>
+  </div>
+</div>
+
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeOptionsDrawer()"></div>
+<div class="drawer-panel" id="drawerPanel">
+  <div class="drawer-header">
+    <h3>練習選項</h3>
+    <button type="button" class="btn-close-drawer" onclick="closeOptionsDrawer()">&times;</button>
+  </div>
+  <div class="drawer-content">
+    <div>
+      <label style="font-size:0.88rem; font-weight:700; display:block; margin-bottom:6px;">小節數 (1～16 小節)</label>
+      <select class="picker-select" id="selectTotalMeasures" onchange="onTotalMeasuresChange()">
+        <option value="1">1 小節</option>
+        <option value="2">2 小節</option>
+        <option value="3">3 小節</option>
+        <option value="4">4 小節</option>
+        <option value="5">5 小節</option>
+        <option value="6">6 小節</option>
+        <option value="7">7 小節</option>
+        <option value="8" selected>8 小節</option>
+        <option value="9">9 小節</option>
+        <option value="10">10 小節</option>
+        <option value="11">11 小節</option>
+        <option value="12">12 小節</option>
+        <option value="13">13 小節</option>
+        <option value="14">14 小節</option>
+        <option value="15">15 小節</option>
+        <option value="16">16 小節</option>
+      </select>
+    </div>
+
+    <div>
+      <label style="font-size:0.88rem; font-weight:700; display:block; margin-bottom:6px;">幾小節換行 (每行 1～4)</label>
+      <select class="picker-select" id="selectMeasuresPerLine" onchange="onMeasuresPerLineChange()">
+        <option value="1">每 1 小節換行</option>
+        <option value="2" selected>每 2 小節換行 (標準)</option>
+        <option value="3">每 3 小節換行</option>
+        <option value="4">每 4 小節換行</option>
+      </select>
+    </div>
+
+    <div>
+      <label style="font-size:0.88rem; font-weight:700; display:block; margin-bottom:6px;">重音設定</label>
+      <label class="quick-checkbox-label" style="display:inline-flex; width:auto; padding:6px 14px; border-radius:8px;">
+        <input type="checkbox" id="checkSingleOnly">
+        <span style="font-weight:700;">Single only</span>
+      </label>
+    </div>
+
+    <div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <span style="font-size:0.88rem; font-weight:700;">Rudiments 項目</span>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button type="button" class="btn-action-small" onclick="selectAllCurrentTab()">全選本類</button>
+          <button type="button" class="btn-action-small" onclick="quickClearAll()">清空</button>
+          <button type="button" class="btn-selected-toggle" id="selectedCountBadgeBtn" onclick="toggleSelectedViewTab()">
+            已選 <span id="selectedCountNum">0</span> 項 ▾
+          </button>
+        </div>
+      </div>
+      <div class="quick-chips-row">
+        <button type="button" class="btn-quick-chip active" id="tab_all" onclick="switchRudimentTab('all')">全部</button>
+        <button type="button" class="btn-quick-chip" id="tab_basic" onclick="switchRudimentTab('基礎')">基礎</button>
+        <button type="button" class="btn-quick-chip" id="tab_diddle" onclick="switchRudimentTab('diddle系列')">diddle系列</button>
+        <button type="button" class="btn-quick-chip" id="tab_flam" onclick="switchRudimentTab('flam系列')">flam系列</button>
+        <button type="button" class="btn-quick-chip" id="tab_roll" onclick="switchRudimentTab('roll系列')">roll系列</button>
+      </div>
+      <div id="rudimentListCards" style="display:flex; flex-direction:column; gap:10px; margin-top:10px;"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<script>
+  const RUDIMENTS_DB = [
+    { id: 'b_rest_quarter', name: '休止', category: '基礎', beats: 1, type: 'rest', notes: [], rests: [{ slot: 0, type: 'quarter' }] },
+    { id: 'b_1', name: '1', category: '基礎', beats: 1, type: 'quarter', notes: [{ slot: 0, sticking: 'R', accent: false, dur: 'quarter' }] },
+    { id: 'b_e', name: 'e', category: '基礎', beats: 1, type: 'isolated', notes: [{ slot: 1, sticking: 'L', accent: false, dur: 'dotted_8th' }], rests: [{ slot: 0, type: '16th' }] },
+    { id: 'b_and', name: '&', category: '基礎', beats: 1, type: 'isolated', notes: [{ slot: 2, sticking: 'R', accent: false, dur: '8th' }], rests: [{ slot: 0.5, type: '8th' }] },
+    { id: 'b_a', name: 'a', category: '基礎', beats: 1, type: 'isolated', notes: [{ slot: 3, sticking: 'L', accent: false, dur: '16th' }], rests: [{ slot: 0.8, type: 'dotted_8th' }] },
+    { id: 'b_1_and', name: '1 &', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 1], notes: [ { slot: 0, sticking: 'R', accent: false, dur: '8th' }, { slot: 2, sticking: 'L', accent: false, dur: '8th' } ] },
+    { id: 'b_1_e', name: '1 e', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 1], beamSecPartial: [0, 14], notes: [ { slot: 0, sticking: 'R', accent: false, dur: '16th' }, { slot: 1, sticking: 'L', accent: false, dur: 'dotted_8th' } ] },
+    { id: 'b_e_and', name: 'e &', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 1], beamSecPartial: [0, 14], rests: [{ slot: 0, type: '16th' }], notes: [ { slot: 1, sticking: 'L', accent: false, dur: '16th' }, { slot: 2, sticking: 'R', accent: false, dur: '8th' } ] },
+    { id: 'b_e_a', name: 'e a', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 1], beamSecPartial: [1, -14], rests: [{ slot: 0, type: '16th' }], notes: [ { slot: 1, sticking: 'L', accent: false, dur: '8th' }, { slot: 3, sticking: 'L', accent: false, dur: '16th' } ] },
+    { id: 'b_and_a', name: '& a', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 1], beamSecFull: [0, 1], rests: [{ slot: 0.5, type: '8th' }], notes: [ { slot: 2, sticking: 'R', accent: false, dur: '16th' }, { slot: 3, sticking: 'L', accent: false, dur: '16th' } ] },
+    { id: 'b_1_e_and', name: '1 e &', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 2], beamSecFull: [0, 1], notes: [ { slot: 0, sticking: 'R', accent: false, dur: '16th' }, { slot: 1, sticking: 'L', accent: false, dur: '16th' }, { slot: 2, sticking: 'R', accent: false, dur: '8th' } ] },
+    { id: 'b_e_and_a', name: 'e & a', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 2], beamSecFull: [0, 2], rests: [{ slot: 0, type: '16th' }], notes: [ { slot: 1, sticking: 'L', accent: false, dur: '16th' }, { slot: 2, sticking: 'R', accent: false, dur: '16th' }, { slot: 3, sticking: 'L', accent: false, dur: '16th' } ] },
+    { id: 'b_1_and_a', name: '1 & a', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 2], beamSecFull: [1, 2], notes: [ { slot: 0, sticking: 'R', accent: false, dur: '8th' }, { slot: 2, sticking: 'R', accent: false, dur: '16th' }, { slot: 3, sticking: 'L', accent: false, dur: '16th' } ] },
+    { id: 'b_16_full', name: '1 e & a', category: '基礎', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false } ] },
+    { id: 'b_trip_2', name: 'Triplet', category: '基礎', beats: 1, type: 'triplet', notes: [{ slot: 1, sticking: 'R', accent: false, dur: '8th' }], rests: [{ slot: 0, type: '8th' }, { slot: 2, type: '8th' }], variants: [ { name: 'Triplet', beats: 1, type: 'triplet', notes: [{ slot: 1, sticking: 'R', accent: false, dur: '8th' }], rests: [{ slot: 0, type: '8th' }, { slot: 2, type: '8th' }] }, { name: 'Triplet', beats: 1, type: 'triplet', notes: [{ slot: 1, sticking: 'L', accent: false, dur: '8th' }], rests: [{ slot: 0, type: '8th' }, { slot: 2, type: '8th' }] } ] },
+    { id: 'b_trip_3', name: 'Triplet', category: '基礎', beats: 1, type: 'triplet', notes: [{ slot: 2, sticking: 'R', accent: false, dur: '8th' }], rests: [{ slot: 0, type: '8th' }, { slot: 1, type: '8th' }], variants: [ { name: 'Triplet', beats: 1, type: 'triplet', notes: [{ slot: 2, sticking: 'R', accent: false, dur: '8th' }], rests: [{ slot: 0, type: '8th' }, { slot: 1, type: '8th' }] }, { name: 'Triplet', beats: 1, type: 'triplet', notes: [{ slot: 2, sticking: 'L', accent: false, dur: '8th' }], rests: [{ slot: 0, type: '8th' }, { slot: 1, type: '8th' }] } ] },
+    { id: 'b_trip_1_2', name: 'Triplet', category: '基礎', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: false, dur: '8th' }, { slot: 1, sticking: 'L', accent: false, dur: '8th' } ], rests: [{ slot: 2, type: '8th' }], variants: [ { name: 'Triplet', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: false, dur: '8th' }, { slot: 1, sticking: 'L', accent: false, dur: '8th' } ], rests: [{ slot: 2, type: '8th' }] }, { name: 'Triplet', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'L', accent: false, dur: '8th' }, { slot: 1, sticking: 'R', accent: false, dur: '8th' } ], rests: [{ slot: 2, type: '8th' }] } ] },
+    { id: 'b_trip_2_3', name: 'Triplet', category: '基礎', beats: 1, type: 'triplet', notes: [ { slot: 1, sticking: 'R', accent: false, dur: '8th' }, { slot: 2, sticking: 'L', accent: false, dur: '8th' } ], rests: [{ slot: 0, type: '8th' }], variants: [ { name: 'Triplet', beats: 1, type: 'triplet', notes: [ { slot: 1, sticking: 'R', accent: false, dur: '8th' }, { slot: 2, sticking: 'L', accent: false, dur: '8th' } ], rests: [{ slot: 0, type: '8th' }] }, { name: 'Triplet', beats: 1, type: 'triplet', notes: [ { slot: 1, sticking: 'L', accent: false, dur: '8th' }, { slot: 2, sticking: 'R', accent: false, dur: '8th' } ], rests: [{ slot: 0, type: '8th' }] } ] },
+    { id: 'b_trip_1_3', name: 'Triplet', category: '基礎', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: false, dur: '8th' }, { slot: 2, sticking: 'L', accent: false, dur: '8th' } ], rests: [{ slot: 1, type: '8th' }], variants: [ { name: 'Triplet', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: false, dur: '8th' }, { slot: 2, sticking: 'L', accent: false, dur: '8th' } ], rests: [{ slot: 1, type: '8th' }] }, { name: 'Triplet', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'L', accent: false, dur: '8th' }, { slot: 2, sticking: 'R', accent: false, dur: '8th' } ], rests: [{ slot: 1, type: '8th' }] } ] },
+    { id: 'b_trip_full', name: 'Triplet', category: '基礎', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false } ], variants: [ { name: 'Triplet', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false } ] }, { name: 'Triplet', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'L', accent: false }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false } ] } ] },
+    { id: 'd_para', name: 'Single Paradiddle', category: 'diddle系列', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'R', accent: false } ], variants: [ { name: 'Single Paradiddle R', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'R', accent: false } ] }, { name: 'Single Paradiddle L', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'L', accent: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'L', accent: false } ] } ] },
+    { id: 'd_out', name: 'Outward Paradiddle', category: 'diddle系列', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: true }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false } ], variants: [ { name: 'Outward Paradiddle R', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: true }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false } ] }, { name: 'Outward Paradiddle L', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'L', accent: false }, { slot: 1, sticking: 'R', accent: true }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'R', accent: false } ] } ] },
+    { id: 'd_rev', name: 'Reverse Paradiddle', category: 'diddle系列', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: true }, { slot: 3, sticking: 'R', accent: false } ], variants: [ { name: 'Reverse Paradiddle R', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: true }, { slot: 3, sticking: 'R', accent: false } ] }, { name: 'Reverse Paradiddle L', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'L', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: true }, { slot: 3, sticking: 'L', accent: false } ] } ] },
+    { id: 'd_inw', name: 'Inward Paradiddle', category: 'diddle系列', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'R', accent: true } ], variants: [ { name: 'Inward Paradiddle R', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'R', accent: true } ] }, { name: 'Inward Paradiddle L', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'L', accent: false }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: true } ] } ] },
+    { id: 'd_dbl', name: 'Double Stroke', category: 'diddle系列', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'L', accent: false } ], variants: [ { name: 'Double Stroke R', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'L', accent: false } ] }, { name: 'Double Stroke L', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'L', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'R', accent: false } ] } ] },
+    { id: 'd_p_diddle', name: 'Paradiddle-Diddle', category: 'diddle系列', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'R', accent: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'R', accent: false }, { slot: 4, sticking: 'L', accent: false }, { slot: 5, sticking: 'L', accent: false } ], variants: [ { name: 'Paradiddle-Diddle R', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'R', accent: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'R', accent: false }, { slot: 4, sticking: 'L', accent: false }, { slot: 5, sticking: 'L', accent: false } ] }, { name: 'Paradiddle-Diddle L', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'L', accent: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'L', accent: false }, { slot: 4, sticking: 'R', accent: false }, { slot: 5, sticking: 'R', accent: false } ] } ] },
+    { id: 'd_dbl_para', name: 'Double Paradiddle', category: 'diddle系列', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'R', accent: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false }, { slot: 4, sticking: 'R', accent: false }, { slot: 5, sticking: 'R', accent: false } ], variants: [ { name: 'Double Paradiddle R', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'R', accent: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false }, { slot: 4, sticking: 'R', accent: false }, { slot: 5, sticking: 'R', accent: false } ] }, { name: 'Double Paradiddle L', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'L', accent: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'R', accent: false }, { slot: 4, sticking: 'L', accent: false }, { slot: 5, sticking: 'L', accent: false } ] } ] },
+    { id: 'f_flam', name: 'Flam', category: 'flam系列', beats: 1, type: 'quarter', notes: [{ slot: 0, sticking: 'R', accent: true, dur: 'quarter', isFlam: true }], variants: [ { name: 'Flam R', beats: 1, type: 'quarter', notes: [{ slot: 0, sticking: 'R', accent: true, dur: 'quarter', isFlam: true }] }, { name: 'Flam L', beats: 1, type: 'quarter', notes: [{ slot: 0, sticking: 'L', accent: true, dur: 'quarter', isFlam: true }] } ] },
+    { id: 'f_tap', name: 'Flam Tap', category: 'flam系列', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: true, isFlam: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: true, isFlam: true }, { slot: 3, sticking: 'L', accent: false } ], variants: [ { name: 'Flam Tap R', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: true, isFlam: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: true, isFlam: true }, { slot: 3, sticking: 'L', accent: false } ] }, { name: 'Flam Tap L', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'L', accent: true, isFlam: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: true, isFlam: true }, { slot: 3, sticking: 'R', accent: false } ] } ] },
+    { id: 'f_accent_3_1', name: 'Flam Accent', category: 'flam系列', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: true, isFlam: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false } ], variants: [ { name: 'Flam Accent R', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: true, isFlam: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false } ] }, { name: 'Flam Accent L', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'L', accent: true, isFlam: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false } ] } ] },
+    { id: 'f_accent_3_2', name: 'Flam Accent', category: 'flam系列', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: true, isFlam: true }, { slot: 2, sticking: 'R', accent: false } ], variants: [ { name: 'Flam Accent R', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: true, isFlam: true }, { slot: 2, sticking: 'R', accent: false } ] }, { name: 'Flam Accent L', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'L', accent: false }, { slot: 1, sticking: 'R', accent: true, isFlam: true }, { slot: 2, sticking: 'L', accent: false } ] } ] },
+    { id: 'f_accent_3_3', name: 'Flam Accent', category: 'flam系列', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: true, isFlam: true } ], variants: [ { name: 'Flam Accent R', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: true, isFlam: true } ] }, { name: 'Flam Accent L', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'L', accent: false }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: true, isFlam: true } ] } ] },
+    { id: 'f_accent_4_1', name: 'Flam Accent', category: 'flam系列', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: true, isFlam: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false } ], variants: [ { name: 'Flam Accent R', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: true, isFlam: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false } ] }, { name: 'Flam Accent L', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'L', accent: true, isFlam: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'R', accent: false } ] } ] },
+    { id: 'f_accent_4_2', name: 'Flam Accent', category: 'flam系列', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: true, isFlam: true }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false } ], variants: [ { name: 'Flam Accent R', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: true, isFlam: true }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false } ] }, { name: 'Flam Accent L', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'L', accent: false }, { slot: 1, sticking: 'R', accent: true, isFlam: true }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'R', accent: false } ] } ] },
+    { id: 'f_accent_4_3', name: 'Flam Accent', category: 'flam系列', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: true, isFlam: true }, { slot: 3, sticking: 'L', accent: false } ], variants: [ { name: 'Flam Accent R', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: true, isFlam: true }, { slot: 3, sticking: 'L', accent: false } ] }, { name: 'Flam Accent L', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'L', accent: false }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: true, isFlam: true }, { slot: 3, sticking: 'R', accent: false } ] } ] },
+    { id: 'f_accent_4_4', name: 'Flam Accent', category: 'flam系列', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: true, isFlam: true } ], variants: [ { name: 'Flam Accent R', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: true, isFlam: true } ] }, { name: 'Flam Accent L', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'L', accent: false }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'R', accent: true, isFlam: true } ] } ] },
+    { id: 'f_flamacue', name: 'Flamacue', category: 'flam系列', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: false, isFlam: true }, { slot: 1, sticking: 'L', accent: true }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false } ], variants: [ { name: 'Flamacue R', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: false, isFlam: true }, { slot: 1, sticking: 'L', accent: true }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false } ] }, { name: 'Flamacue L', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'L', accent: false, isFlam: true }, { slot: 1, sticking: 'R', accent: true }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'R', accent: false } ] } ] },
+    { id: 'f_para', name: 'Flam Paradiddle', category: 'flam系列', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: true, isFlam: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'R', accent: false } ], variants: [ { name: 'Flam Paradiddle R', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: true, isFlam: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'R', accent: false } ] }, { name: 'Flam Paradiddle L', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'L', accent: true, isFlam: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'L', accent: false } ] } ] },
+    { id: 'f_swiss', name: 'Swiss Army Triplet', category: 'flam系列', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: true, isFlam: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false } ], variants: [ { name: 'Swiss Army Triplet R', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: true, isFlam: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false } ] }, { name: 'Swiss Army Triplet L', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'L', accent: true, isFlam: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false } ] } ] },
+    { id: 'f_mill', name: 'Flammed Mill', category: 'flam系列', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: true, isFlam: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'R', accent: false } ], variants: [ { name: 'Flammed Mill R', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: true, isFlam: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'R', accent: false } ] }, { name: 'Flammed Mill L', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'L', accent: true, isFlam: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false } ] } ] },
+    { id: 'f_p_diddle', name: 'Flam Paradiddle-Diddle', category: 'flam系列', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'R', accent: true, isFlam: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'R', accent: false }, { slot: 4, sticking: 'L', accent: false }, { slot: 5, sticking: 'L', accent: false } ], variants: [ { name: 'Flam Paradiddle-Diddle R', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'R', accent: true, isFlam: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'R', accent: false }, { slot: 4, sticking: 'L', accent: false }, { slot: 5, sticking: 'L', accent: false } ] }, { name: 'Flam Paradiddle-Diddle L', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'L', accent: true, isFlam: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'L', accent: false }, { slot: 4, sticking: 'R', accent: false }, { slot: 5, sticking: 'R', accent: false } ] } ] },
+    { id: 'f_patafla', name: 'Patafla-fla', category: 'flam系列', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: true, isFlam: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: true, isFlam: true } ], variants: [ { name: 'Patafla-fla R', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: true, isFlam: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: true, isFlam: true } ] }, { name: 'Patafla-fla L', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'L', accent: true, isFlam: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'R', accent: true, isFlam: true } ] } ] },
+    { id: 'f_inv_tap', name: 'Inverted Flam Tap', category: 'flam系列', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: true, isFlam: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'L', accent: true, isFlam: true }, { slot: 3, sticking: 'R', accent: false } ], variants: [ { name: 'Inverted Flam Tap R', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: true, isFlam: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'L', accent: true, isFlam: true }, { slot: 3, sticking: 'R', accent: false } ] }, { name: 'Inverted Flam Tap L', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'L', accent: true, isFlam: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'R', accent: true, isFlam: true }, { slot: 3, sticking: 'L', accent: false } ] } ] },
+    { id: 'f_drag', name: 'Flam Drag', category: 'flam系列', beats: 1, type: 'triplet_drag', notes: [ { slot: 0.5, sticking: 'R', accent: true, isFlam: true }, { slot: 2.0, sticking: 'L', accent: false }, { slot: 3.0, sticking: 'L', accent: false }, { slot: 4.5, sticking: 'R', accent: false } ], variants: [ { name: 'Flam Drag R', beats: 1, type: 'triplet_drag', notes: [ { slot: 0.5, sticking: 'R', accent: true, isFlam: true }, { slot: 2.0, sticking: 'L', accent: false }, { slot: 3.0, sticking: 'L', accent: false }, { slot: 4.5, sticking: 'R', accent: false } ] }, { name: 'Flam Drag L', beats: 1, type: 'triplet_drag', notes: [ { slot: 0.5, sticking: 'L', accent: true, isFlam: true }, { slot: 2.0, sticking: 'R', accent: false }, { slot: 3.0, sticking: 'R', accent: false }, { slot: 4.5, sticking: 'L', accent: false } ] } ] },
+    { id: 'r_single_4', name: 'Single Stroke Roll', category: 'roll系列', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false } ], variants: [ { name: 'Single Stroke Roll R', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false } ] }, { name: 'Single Stroke Roll L', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'L', accent: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'R', accent: false } ] } ] },
+    { id: 'r_six_stroke', name: 'Six Stroke Roll', category: 'roll系列', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'R', accent: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'R', accent: false }, { slot: 4, sticking: 'R', accent: false }, { slot: 5, sticking: 'L', accent: true } ], variants: [ { name: 'Six Stroke Roll R', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'R', accent: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'R', accent: false }, { slot: 4, sticking: 'R', accent: false }, { slot: 5, sticking: 'L', accent: true } ] }, { name: 'Six Stroke Roll L', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'L', accent: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false }, { slot: 4, sticking: 'L', accent: false }, { slot: 5, sticking: 'R', accent: true } ] } ] },
+    { id: 'r_seven_stroke', name: 'Seven Stroke Roll', category: 'roll系列', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'L', accent: false }, { slot: 4, sticking: 'R', accent: false }, { slot: 5, sticking: 'L', accent: true } ], variants: [ { name: 'Seven Stroke Roll R', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'L', accent: false }, { slot: 4, sticking: 'R', accent: false }, { slot: 5, sticking: 'L', accent: true } ] }, { name: 'Seven Stroke Roll L', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'L', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'R', accent: false }, { slot: 4, sticking: 'L', accent: false }, { slot: 5, sticking: 'R', accent: true } ] } ] },
+    { id: 'r_single_four', name: 'Single Stroke Four', category: 'roll系列', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: true } ], variants: [ { name: 'Single Stroke Four R', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: true } ] }, { name: 'Single Stroke Four L', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'L', accent: false }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: true } ] } ] }
+  ];
+
+  let isCustomEditMode = false;
+  let draggedCardInfo = null;
+  let currentDrawerTab = 'all';
+  let selectedMeasureCount = 8;
+  let measuresPerLine = 2;
+  let selectedRudimentIds = new Set([]);
+
+  let currentGeneratedSequence = [];
+
+  function onTotalMeasuresChange() {
+    selectedMeasureCount = parseInt(document.getElementById('selectTotalMeasures').value, 10) || 2;
+    generateNewExercise();
+  }
+
+  function onMeasuresPerLineChange() {
+    measuresPerLine = parseInt(document.getElementById('selectMeasuresPerLine').value, 10) || 2;
+    renderMainScore();
+  }
+
+  function openOptionsDrawer() {
+    document.getElementById('drawerOverlay').classList.add('active');
+    document.getElementById('drawerPanel').classList.add('active');
+  }
+  function closeOptionsDrawer() {
+    document.getElementById('drawerOverlay').classList.remove('active');
+    document.getElementById('drawerPanel').classList.remove('active');
+  }
+  
+  window.triggerExport = async function() {
+      // 依要求修改提示文字
+      const userInput = prompt("請輸入列印時要標示的 BPM (不標示請直接按確定)：", "");
+      
+      if (userInput === null) {
+          return;
+      }
+      
+      const printWrapper = document.getElementById('printBpmWrapper');
+      const printValue = document.getElementById('printBpmValue');
+      
+      if (userInput.trim() !== "") {
+          printValue.innerText = userInput.trim();
+          printWrapper.classList.add('show');
+      } else {
+          printWrapper.classList.remove('show');
+      }
+      
+      document.getElementById('loadingOverlay').style.display = 'flex';
+      
+      setTimeout(async () => {
+          const element = document.getElementById('printArea');
+          const titleText = document.getElementById('paperTitle').innerText || 'Rudiment_Exercise';
+          const filename = titleText.replace(/\s+/g, '_') + '.png';
+          
+          const hiddenElements = [
+              document.querySelector('header'),
+              document.querySelector('.quick-options-bar'),
+              document.querySelector('.bottom-dock'),
+              document.getElementById('customEditBanner'),
+              document.querySelector('.drawer-overlay'),
+              document.querySelector('.drawer-panel')
+          ];
+          
+          const originalDisplays = hiddenElements.map(el => el ? el.style.display : '');
+          hiddenElements.forEach(el => { if(el) el.style.display = 'none'; });
+
+          const originalPadding = element.style.padding;
+          element.style.padding = '40px';
+
+          try {
+              const canvas = await html2canvas(element, { 
+                  scale: 3, 
+                  useCORS: true,
+                  backgroundColor: '#ffffff'
+              });
+              
+              element.style.padding = originalPadding;
+              hiddenElements.forEach((el, index) => { if(el) el.style.display = originalDisplays[index]; });
+              document.getElementById('loadingOverlay').style.display = 'none';
+              printWrapper.classList.remove('show');
+              
+              canvas.toBlob(async function(blob) {
+                  const url = window.URL.createObjectURL(blob);
+                  showPreviewOverlay(url);
+              }, 'image/png');
+              
+          } catch(err) {
+              console.error("圖片匯出失敗：", err);
+              element.style.padding = originalPadding;
+              hiddenElements.forEach((el, index) => { if(el) el.style.display = originalDisplays[index]; });
+              document.getElementById('loadingOverlay').style.display = 'none';
+              printWrapper.classList.remove('show');
+          }
+      }, 50);
+  };
+
+  function showPreviewOverlay(url) {
+      const overlay = document.createElement('div');
+      // 將 padding 與 flex 排版簡化，靠底部邊界與 margin 計算完美距離比例 1:2
+      overlay.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.95); z-index:10000; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; box-sizing:border-box;";
+
+      const img = document.createElement('img');
+      img.src = url;
+      // margin-top: auto 把圖片往上推
+      // margin-bottom: 5vh (距離按鈕 1 倍距離)
+      img.style.cssText = "margin-top:auto; margin-bottom:5vh; max-width:92vw; max-height:68vh; object-fit:contain; border-radius:8px; box-shadow:0 8px 32px rgba(0,0,0,0.5); -webkit-touch-callout: default; user-select: auto;";
+
+      const closeBtn = document.createElement('button');
+      closeBtn.innerText = "返回修改";
+      // margin-bottom: 10vh + safe-area (距離底部 2 倍距離)
+      closeBtn.style.cssText = "display:flex; align-items:center; justify-content:center; padding:16px 48px; border-radius:99px; background:#475569; color:#fff; border:none; font-size:1.25rem; font-weight:bold; cursor:pointer; line-height:1; flex-shrink:0; margin-bottom:calc(10vh + env(safe-area-inset-bottom, 20px)); box-shadow: 0 4px 12px rgba(0,0,0,0.3);";
+      closeBtn.onclick = () => document.body.removeChild(overlay);
+
+      overlay.appendChild(img);
+      overlay.appendChild(closeBtn);
+      document.body.appendChild(overlay);
+  }
+
+  function renderRestSvg(x, y, type, s) {
+    if (type === 'quarter') {
+      return `<g transform="translate(${x}, ${y}) scale(${s})"><path d="M -2.95 -14.0 L -3.15 -13.95 L -3.4 -13.6 L -2.61 -12.66 L -1.96 -11.67 L -1.07 -9.98 L -0.77 -9.04 L -0.77 -7.84 L -1.22 -6.4 L -2.21 -4.72 L -3.55 -3.13 L -4.49 -2.28 L -0.12 2.93 L 0.92 4.37 L 0.92 4.62 L -0.07 4.17 L -0.62 4.07 L -1.66 4.07 L -2.31 4.22 L -3.2 4.77 L -3.75 5.31 L -4.2 5.96 L -4.49 6.7 L -4.69 7.7 L -4.69 8.69 L -4.59 9.18 L -4.1 10.18 L -3.3 11.22 L -2.51 12.06 L -0.77 13.45 L -0.17 13.8 L 0.47 13.95 L 0.67 13.8 L -0.57 12.46 L -1.37 11.07 L -1.61 10.18 L -1.61 9.28 L -1.37 8.44 L -0.57 7.6 L 0.82 7.05 L 2.85 7.1 L 4.64 7.7 L 4.15 6.9 L 1.22 3.23 L 0.42 1.89 L 0.17 1.04 L 0.37 -0.35 L 0.77 -1.24 L 1.86 -3.03 L 3.55 -5.26 L -2.76 -13.95 Z" fill="#0f172a"/></g>`;
+    } else if (type === '16th') {
+      return `<g transform="translate(${x}, ${y}) scale(${s})"><path d="M 5.16 -11.13 L 4.79 -11.13 L 3.92 -9.89 L 2.8 -8.77 L 2.18 -8.77 L 1.68 -9.39 L 1.43 -10.63 L 0.93 -11.5 L 0.06 -12.0 L -0.93 -12.0 L -1.8 -11.63 L -2.55 -10.88 L -2.8 -10.26 L -2.67 -8.77 L -2.42 -8.27 L -1.8 -7.65 L -0.81 -7.15 L 0.44 -7.03 L 2.8 -7.52 L 3.17 -7.77 L 3.42 -7.4 L 2.05 -2.67 L 1.31 -1.43 L 0.19 -0.31 L -0.44 -0.31 L -0.81 -0.68 L -1.55 -2.92 L -2.55 -3.54 L -3.67 -3.54 L -4.54 -3.17 L -5.04 -2.67 L -5.41 -1.93 L -5.41 -0.68 L -5.04 0.19 L -4.41 0.81 L -3.3 1.31 L -1.55 1.31 L 0.56 0.68 L 0.93 0.93 L -2.42 11.63 L -1.93 11.88 L -1.06 11.88 L -0.56 11.38 L 2.55 -0.68 L 2.92 -1.55 L 3.05 -2.55 L 5.28 -10.51 Z" fill="#0f172a"/></g>`;
+    } else if (type === '8th' || type === 'dotted_8th') {
+      const dot = type === 'dotted_8th' ? `<circle cx="8" cy="-2.5" r="2.2" fill="#0f172a"/>` : '';
+      return `<g transform="translate(${x}, ${y}) scale(${s})"><path d="M 5.92 -10.0 L 4.04 -7.91 L 2.67 -6.62 L 1.26 -5.64 L -0.15 -5.0 L -0.28 -5.04 L -0.24 -6.11 L -0.32 -6.67 L -0.71 -7.65 L -1.35 -8.42 L -1.77 -8.72 L -2.41 -8.97 L -2.88 -9.06 L -3.61 -9.02 L -4.59 -8.63 L -5.32 -7.95 L -5.83 -6.88 L -5.96 -6.24 L -5.96 -5.38 L -5.71 -4.27 L -5.41 -3.72 L -4.94 -3.21 L -4.0 -2.74 L -2.41 -2.65 L -1.18 -2.86 L 0.53 -3.46 L 2.63 -4.57 L 2.88 -4.62 L -1.09 9.36 L -1.05 9.53 L 0.24 9.96 L 0.36 9.91 L 5.92 -9.74 Z" fill="#0f172a"/>${dot}</g>`;
+    }
+    return '';
+  }
+
+  function renderFlagSvg(stemX, stemTop, dur, s) {
+    if (dur === '8th' || dur === 'dotted_8th') {
+      return `<g transform="translate(${stemX}, ${stemTop}) scale(${s})"><path d="M 0.0 0.0 L 0.0 24.85 L 0.0 24.85 L 0.17 6.93 L 1.35 6.93 L 2.7 7.27 L 4.9 8.45 L 6.93 10.31 L 8.45 12.51 L 9.3 14.37 L 9.8 16.39 L 9.8 20.28 L 8.62 23.83 L 9.97 20.79 L 10.65 16.73 L 10.48 13.69 L 9.8 11.15 L 8.45 8.62 L 6.25 6.42 L 2.54 3.55 L 0.51 1.69 L 0.0 1.01 L 0.0 0.0 Z" fill="#0f172a"/></g>`;
+    } else if (dur === '16th') {
+      return `<g transform="translate(${stemX}, ${stemTop}) scale(${s})"><path d="M 0.0 0.0 L 0.0 0.38 L 0.0 26.69 L 0.0 26.69 L 0.08 13.5 L 2.06 14.03 L 3.43 14.72 L 5.18 16.24 L 6.18 17.69 L 7.09 19.67 L 7.55 21.27 L 7.78 22.95 L 7.7 26.69 L 8.69 21.65 L 8.69 18.83 L 8.31 16.85 L 8.69 14.72 L 8.69 11.97 L 8.31 9.76 L 7.47 7.93 L 6.33 6.56 L 4.8 5.34 L 2.06 3.81 L 0.3 1.83 L 0.0 0.08 Z M 0.08 6.63 L 0.53 6.71 L 1.07 6.94 L 1.3 6.94 L 2.44 7.32 L 3.74 8.08 L 5.18 9.38 L 5.95 10.45 L 6.79 12.05 L 6.79 12.2 L 6.94 12.43 L 6.94 12.58 L 7.24 13.27 L 7.24 13.5 L 7.4 13.72 L 7.47 14.33 L 7.55 14.41 L 7.55 14.64 L 7.47 14.72 L 7.24 14.56 L 7.09 14.26 L 7.01 14.26 L 5.57 12.73 L 4.57 12.05 L 3.81 11.67 L 3.66 11.67 L 2.44 10.98 L 0.91 9.53 L 0.3 8.69 L 0.3 8.54 L 0.0 8.01 L 0.0 6.71 Z" fill="#0f172a" fill-rule="evenodd"/></g>`;
+    }
+    return '';
+  }
+
+  function generateMiniScoreSvg(r, width = 240) {
+    const height = 56, staffY = 30;
+    const totalSlots = (r.type === 'sextuplet' || r.type === 'triplet_drag' || (r.notes && r.notes.length === 6)) ? 6 : (r.type === 'triplet' ? 3 : 4);
+    const padX = width < 180 ? 12 : 22;
+    const slotSpacing = (width - padX * 2) / Math.max(totalSlots, 1);
+    let svgParts = [], notePoints = [];
+
+    r.notes.forEach((note, idx) => {
+      const slot = note.slot !== undefined ? note.slot : idx;
+      const nx = padX + (slot * slotSpacing) + (slotSpacing / 2);
+      notePoints.push({ x: nx, y: staffY, note: note });
+      const handColor = note.sticking === 'R' ? '#dc2626' : '#2563eb';
+
+      svgParts.push(`<ellipse cx="${nx}" cy="${staffY}" rx="4.5" ry="3.5" fill="#0f172a" transform="rotate(-20 ${nx} ${staffY})"/>`);
+      const stemX = nx + 4;
+      const stemTop = staffY - 20;
+      svgParts.push(`<line x1="${stemX}" y1="${staffY}" x2="${stemX}" y2="${stemTop}" stroke="#0f172a" stroke-width="1.4"/>`);
+
+      if (note.isFlam) {
+        const flamX = nx - 7.5;
+        const flamY = staffY - 1.2;
+        const gStemX = flamX + 1.8;
+        const gStemTop = staffY - 14;
+        svgParts.push(`<ellipse cx="${flamX}" cy="${flamY}" rx="2.8" ry="2.0" fill="#0f172a" transform="rotate(-20 ${flamX} ${flamY})"/>`);
+        svgParts.push(`<line x1="${gStemX}" y1="${flamY}" x2="${gStemX}" y2="${gStemTop}" stroke="#0f172a" stroke-width="1.0"/>`);
+        svgParts.push(`<path d="M ${gStemX} ${gStemTop} C ${gStemX + 3.2} ${gStemTop + 1.5} ${gStemX + 4.2} ${gStemTop + 6.5} ${gStemX + 1.8} ${gStemTop + 9} C ${gStemX + 3.2} ${gStemTop + 6} ${gStemX + 2.2} ${gStemTop + 2.5} ${gStemX} ${gStemTop + 0.8} Z" fill="#0f172a"/>`);
+        svgParts.push(`<line x1="${gStemX - 2.8}" y1="${gStemTop + 6.5}" x2="${gStemX + 3.6}" y2="${gStemTop + 2.6}" stroke="#0f172a" stroke-width="1.0"/>`);
+        svgParts.push(`<path d="M ${flamX - 0.5} ${flamY + 3.2} Q ${(flamX + nx)/2} ${flamY + 6.2} ${nx - 1.8} ${staffY + 3.5}" fill="none" stroke="#0f172a" stroke-width="1.0" stroke-linecap="round"/>`);
+      }
+
+      if ((r.type === 'isolated' || r.notes.length === 1) && note.dur) {
+        svgParts.push(renderFlagSvg(stemX, stemTop, note.dur, 0.9));
+      }
+      if (note.dur === 'dotted_8th') {
+        svgParts.push(`<circle cx="${nx + 9}" cy="${staffY - 1}" r="1.9" fill="#0f172a"/>`);
+      }
+
+      if (note.accent) svgParts.push(`<text x="${nx + 1}" y="${staffY - 23}" font-size="10" font-weight="900" fill="#0f172a" text-anchor="middle">&gt;</text>`);
+      svgParts.push(`<text x="${nx}" y="${staffY + 18}" font-weight="800" font-size="12" fill="${handColor}" text-anchor="middle">${note.sticking}</text>`);
+    });
+
+    if (r.rests) {
+      r.rests.forEach(rst => {
+        const rx = r.type === 'rest' ? (width / 2) : (padX + (rst.slot * slotSpacing) + (slotSpacing / 2));
+        svgParts.push(renderRestSvg(rx, staffY, rst.type, 0.9));
+      });
+    }
+
+    const beatCenter = width / 2;
+    if (r.type === 'triplet' || r.type === 'triplet_drag') {
+      svgParts.push(`<text x="${beatCenter}" y="${staffY - 22}" font-size="9.5" font-weight="bold" fill="#0f172a" text-anchor="middle">3</text>`);
+    } else if (r.type === 'sextuplet') {
+      svgParts.push(`<text x="${beatCenter}" y="${staffY - 22}" font-size="9.5" font-weight="bold" fill="#0f172a" text-anchor="middle">6</text>`);
+    }
+
+    if (r.type === 'beamed' && notePoints.length >= 2) {
+      const p0 = notePoints[r.beamPrimary[0]], p1 = notePoints[r.beamPrimary[1]];
+      svgParts.push(`<line x1="${p0.x + 4}" y1="${staffY - 20}" x2="${p1.x + 4}" y2="${staffY - 20}" stroke="#0f172a" stroke-width="2.5"/>`);
+      if (r.beamSecFull) {
+        const s0 = notePoints[r.beamSecFull[0]], s1 = notePoints[r.beamSecFull[1]];
+        svgParts.push(`<line x1="${s0.x + 4}" y1="${staffY - 16}" x2="${s1.x + 4}" y2="${staffY - 16}" stroke="#0f172a" stroke-width="2"/>`);
+      }
+      if (r.beamSecPartial) {
+        const pNode = notePoints[r.beamSecPartial[0]];
+        svgParts.push(`<line x1="${pNode.x + 4}" y1="${staffY - 16}" x2="${pNode.x + 4 + r.beamSecPartial[1]}" y2="${staffY - 16}" stroke="#0f172a" stroke-width="2"/>`);
+      }
+    } else if (r.type === 'triplet' && notePoints.length >= 2) {
+      const firstX = notePoints[0].x + 4, lastX = notePoints[notePoints.length - 1].x + 4;
+      svgParts.push(`<line x1="${firstX}" y1="${staffY - 20}" x2="${lastX}" y2="${staffY - 20}" stroke="#0f172a" stroke-width="2.5"/>`);
+    } else if (r.type === 'triplet_drag' && notePoints.length >= 4) {
+      const firstX = notePoints[0].x + 4, lastX = notePoints[3].x + 4;
+      svgParts.push(`<line x1="${firstX}" y1="${staffY - 20}" x2="${lastX}" y2="${staffY - 20}" stroke="#0f172a" stroke-width="2.5"/>`);
+      const d1X = notePoints[1].x + 4, d2X = notePoints[2].x + 4;
+      svgParts.push(`<line x1="${d1X}" y1="${staffY - 16}" x2="${d2X}" y2="${staffY - 16}" stroke="#0f172a" stroke-width="2"/>`);
+    } else if (r.type === 'sextuplet' && notePoints.length >= 2) {
+      const firstX = notePoints[0].x + 4, lastX = notePoints[notePoints.length - 1].x + 4;
+      svgParts.push(`<line x1="${firstX}" y1="${staffY - 20}" x2="${lastX}" y2="${staffY - 20}" stroke="#0f172a" stroke-width="2.5"/>`);
+      svgParts.push(`<line x1="${firstX}" y1="${staffY - 16}" x2="${lastX}" y2="${staffY - 16}" stroke="#0f172a" stroke-width="2"/>`);
+    } else if (r.type === '16th' && notePoints.length >= 2) {
+      const firstX = notePoints[0].x + 4, lastX = notePoints[notePoints.length - 1].x + 4;
+      svgParts.push(`<line x1="${firstX}" y1="${staffY - 20}" x2="${lastX}" y2="${staffY - 20}" stroke="#0f172a" stroke-width="2.5"/>`);
+      svgParts.push(`<line x1="${firstX}" y1="${staffY - 16}" x2="${lastX}" y2="${staffY - 16}" stroke="#0f172a" stroke-width="2"/>`);
+    }
+
+    return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="display:block; max-width:100%;">${svgParts.join('')}</svg>`;
+  }
+
+  function renderRudimentCardsInDrawer() {
+    const container = document.getElementById('rudimentListCards');
+    
+    const filteredList = RUDIMENTS_DB.filter(r => {
+      if (currentDrawerTab === 'selected_only') return selectedRudimentIds.has(r.id);
+      if (currentDrawerTab === 'all') return true;
+      return r.category === currentDrawerTab;
+    });
+
+    if (currentDrawerTab === 'selected_only' && filteredList.length === 0) {
+      container.innerHTML = '<div style="text-align:center; padding:30px 10px; color:#94a3b8; font-size:0.85rem;">目前尚未勾選任何項目<br><span style="font-size:0.75rem;">請點選上方「全部」或「基礎」開始挑選</span></div>';
+    } else {
+      let htmlParts = [];
+      filteredList.forEach(r => {
+        if (isCustomEditMode) {
+          let scoreHtml = '';
+          if (r.variants && r.variants.length >= 2) {
+            scoreHtml = `
+              <div style="display:flex; gap:6px; width:100%; justify-content:center; align-items:center;">
+                <div onmousedown="startCustomDrag(event, '${r.id}', 0)" ontouchstart="startCustomDrag(event, '${r.id}', 0)" style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#ffffff; border:1.5px solid #dc2626; border-radius:6px; padding:4px 2px; cursor:grab; touch-action:none;">
+                  <div style="font-size:0.65rem; font-weight:800; color:#dc2626; margin-bottom:2px;">右起</div>
+                  <div id="svg-ghost-${r.id}-0" style="width:100%; display:flex; justify-content:center;">${generateMiniScoreSvg(r.variants[0], 145)}</div>
+                </div>
+                <div onmousedown="startCustomDrag(event, '${r.id}', 1)" ontouchstart="startCustomDrag(event, '${r.id}', 1)" style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#ffffff; border:1.5px solid #2563eb; border-radius:6px; padding:4px 2px; cursor:grab; touch-action:none;">
+                  <div style="font-size:0.65rem; font-weight:800; color:#2563eb; margin-bottom:2px;">左起</div>
+                  <div id="svg-ghost-${r.id}-1" style="width:100%; display:flex; justify-content:center;">${generateMiniScoreSvg(r.variants[1], 145)}</div>
+                </div>
+              </div>
+            `;
+          } else {
+            scoreHtml = `
+              <div onmousedown="startCustomDrag(event, '${r.id}', null)" ontouchstart="startCustomDrag(event, '${r.id}', null)" style="background:#ffffff; border:1.5px dashed #64748b; border-radius:6px; padding:4px; display:flex; justify-content:center; cursor:grab; touch-action:none;">
+                <div id="svg-ghost-${r.id}-null" style="width:100%; display:flex; justify-content:center;">${generateMiniScoreSvg(r, 240)}</div>
+              </div>
+            `;
+          }
+          
+          htmlParts.push(`
+            <div class="rudiment-card-item" style="cursor:default;">
+              <div class="rudiment-header-row">
+                <span class="rudiment-item-name">${r.name}</span>
+                <span style="font-size:0.72rem; font-weight:800; color:#64748b;">按住拖曳下方小卡</span>
+              </div>
+              ${scoreHtml}
+            </div>
+          `);
+        } else {
+          let scoreHtml = '';
+          if (r.variants && r.variants.length >= 2) {
+            scoreHtml = `
+              <div style="display:flex; gap:6px; width:100%; justify-content:center; align-items:center;">
+                <div style="flex:1; display:flex; justify-content:center; align-items:center; background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:4px 2px;">
+                  <div style="width:100%; display:flex; justify-content:center;">${generateMiniScoreSvg(r.variants[0], 145)}</div>
+                </div>
+                <div style="flex:1; display:flex; justify-content:center; align-items:center; background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:4px 2px;">
+                  <div style="width:100%; display:flex; justify-content:center;">${generateMiniScoreSvg(r.variants[1], 145)}</div>
+                </div>
+              </div>
+            `;
+          } else {
+            scoreHtml = `<div class="rudiment-mini-score">${generateMiniScoreSvg(r, 240)}</div>`;
+          }
+
+          htmlParts.push(`
+            <div class="rudiment-card-item ${selectedRudimentIds.has(r.id) ? 'selected' : ''}" onclick="toggleRudimentCard('${r.id}')">
+              <div class="rudiment-header-row">
+                <span class="rudiment-item-name">${r.name}</span>
+                <div class="rudiment-check-box">${selectedRudimentIds.has(r.id) ? '✓' : ''}</div>
+              </div>
+              ${scoreHtml}
+            </div>
+          `);
+        }
+      });
+      container.innerHTML = htmlParts.join('');
+    }
+
+    updateSelectedCountUI();
+  }
+
+  function updateSelectedCountUI() {
+    const numSpan = document.getElementById('selectedCountNum');
+    if (numSpan) numSpan.innerText = selectedRudimentIds.size;
+    const badgeBtn = document.getElementById('selectedCountBadgeBtn');
+    if (badgeBtn) {
+      badgeBtn.classList.toggle('active', currentDrawerTab === 'selected_only');
+    }
+  }
+
+  function toggleSelectedViewTab() {
+    if (currentDrawerTab === 'selected_only') {
+      switchRudimentTab('all');
+    } else {
+      currentDrawerTab = 'selected_only';
+      document.querySelectorAll('.btn-quick-chip').forEach(btn => btn.classList.remove('active'));
+      renderRudimentCardsInDrawer();
+    }
+  }
+
+  function toggleRudimentCard(id) {
+    if (selectedRudimentIds.has(id)) {
+      selectedRudimentIds.delete(id);
+    } else {
+      selectedRudimentIds.add(id);
+    }
+    renderRudimentCardsInDrawer();
+  }
+
+  function switchRudimentTab(tab) {
+    currentDrawerTab = tab;
+    document.querySelectorAll('.btn-quick-chip').forEach(btn => btn.classList.remove('active'));
+    if (tab === 'all') document.getElementById('tab_all').classList.add('active');
+    if (tab === '基礎') document.getElementById('tab_basic').classList.add('active');
+    if (tab === 'diddle系列') document.getElementById('tab_diddle').classList.add('active');
+    if (tab === 'flam系列') document.getElementById('tab_flam').classList.add('active');
+    if (tab === 'roll系列') document.getElementById('tab_roll').classList.add('active');
+    updateSelectedCountUI();
+    renderRudimentCardsInDrawer();
+  }
+
+  function selectAllCurrentTab() {
+    RUDIMENTS_DB.filter(r => currentDrawerTab === 'all' || r.category === currentDrawerTab).forEach(r => selectedRudimentIds.add(r.id));
+    renderRudimentCardsInDrawer();
+  }
+
+  function quickClearAll() {
+    selectedRudimentIds.clear();
+    renderRudimentCardsInDrawer();
+  }
+
+  function getItemNoteEvents(item, startBeat) {
+    if (!item.notes || item.notes.length === 0) return [];
+    const totalSlots = (item.type === 'sextuplet' || item.type === 'triplet_drag' || item.notes.length === 6) ? 6 : (item.type === 'triplet' ? 3 : 4);
+    const events = [];
+    item.notes.forEach((n, idx) => {
+      const slot = n.slot !== undefined ? n.slot : idx;
+      const t = startBeat + (slot / totalSlots) * item.beats;
+      events.push({ t: t, sticking: n.sticking, accent: !!n.accent, dur: n.dur || item.type });
+    });
+    return events;
+  }
+
+  function isSingleOnlyNote(events, i) {
+    if (i > 0) {
+      const dtPrev = events[i].t - events[i - 1].t;
+      if (dtPrev < 0.48 && events[i - 1].sticking === events[i].sticking) {
+        return false;
+      }
+    }
+    if (i < events.length - 1) {
+      const dtNext = events[i + 1].t - events[i].t;
+      if (dtNext < 0.48 && events[i + 1].sticking === events[i].sticking) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function willCauseRuleViolation(seq, currentBeats, candidate, singleOnly) {
+    if (!candidate.notes || candidate.notes.length === 0) return false;
+    const seqEvents = [];
+    let curB = 0;
+    seq.forEach(item => {
+      const evs = getItemNoteEvents(item, curB);
+      evs.forEach(e => seqEvents.push(e));
+      curB += item.beats;
+    });
+
+    const candEvents = getItemNoteEvents(candidate, currentBeats);
+    const tailEvents = seqEvents.slice(-6);
+    const combined = tailEvents.concat(candEvents);
+
+    for (let i = 0; i < combined.length - 2; i++) {
+      const e1 = combined[i], e2 = combined[i + 1], e3 = combined[i + 2];
+      if (e1.sticking === e2.sticking && e2.sticking === e3.sticking) {
+        const dt1 = e2.t - e1.t;
+        const dt2 = e3.t - e2.t;
+        if (dt1 <= 0.38 && dt2 <= 0.38) {
+          return true;
+        }
+      }
+    }
+
+    if (singleOnly) {
+      for (let i = 0; i < combined.length; i++) {
+        if (combined[i].accent) {
+          if (!isSingleOnlyNote(combined, i)) return true; 
+        }
+      }
+    } else {
+      let lastAccHand = null;
+      for (let i = 0; i < combined.length; i++) {
+        if (combined[i].accent) {
+          if (lastAccHand && lastAccHand === combined[i].sticking) return true; 
+          lastAccHand = combined[i].sticking;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  window.randomizeAccents = function() {
+    if (!currentGeneratedSequence || currentGeneratedSequence.length === 0) return;
+    const singleOnly = document.getElementById('checkSingleOnly') ? document.getElementById('checkSingleOnly').checked : false;
+
+    const allNotes = [];
+    let curB = 0;
+    currentGeneratedSequence.forEach((item, itemIdx) => {
+      item.notes = item.notes.map(n => Object.assign({}, n, { accent: false }));
+      const totalSlots = (item.type === 'sextuplet' || item.type === 'triplet_drag' || item.notes.length === 6) ? 6 : (item.type === 'triplet' ? 3 : 4);
+      item.notes.forEach((n, nIdx) => {
+        const slot = n.slot !== undefined ? n.slot : nIdx;
+        const t = curB + (slot / totalSlots) * item.beats;
+        allNotes.push({ noteRef: n, t: t, sticking: n.sticking });
+      });
+      curB += item.beats;
+    });
+
+    let lastAccHand = null;
+    let lastAccT = -999;
+
+    for (let i = 0; i < allNotes.length; i++) {
+      const noteObj = allNotes[i];
+
+      if (singleOnly && !isSingleOnlyNote(allNotes, i)) continue;
+      if (!singleOnly && lastAccHand === noteObj.sticking) continue;
+      if (noteObj.t - lastAccT < 0.2) continue;
+
+      if (Math.random() < 0.42) {
+        noteObj.noteRef.accent = true;
+        lastAccHand = noteObj.sticking;
+        lastAccT = noteObj.t;
+      }
+    }
+
+    document.getElementById('toggleAccents').checked = true;
+    renderMainScore();
+  };
+
+  window.generateNewExercise = function() {
+    const singleOnly = document.getElementById('checkSingleOnly') ? document.getElementById('checkSingleOnly').checked : false;
+    const activePool = [];
+    RUDIMENTS_DB.forEach(r => {
+      if (selectedRudimentIds.has(r.id)) {
+        if (r.variants && r.variants.length > 0) activePool.push(...r.variants);
+        else activePool.push(r);
+      }
+    });
+
+    if (activePool.length === 0) {
+      document.getElementById('paperSvgContainer').innerHTML = '<div style="text-align:center; padding:40px; color:#94a3b8;">請先在右側「練習選項」勾選至少 1 項！</div>';
+      return;
+    }
+
+    const totalBeats = selectedMeasureCount * 4;
+    let finalSeq = [];
+    for (let attempt = 0; attempt < 50; attempt++) {
+      let tempSeq = [];
+      let curB = 0;
+      let failed = false;
+
+      while (curB < totalBeats) {
+        const remaining = totalBeats - curB;
+        let candidates = activePool.filter(r => r.beats <= remaining);
+        if (candidates.length === 0) candidates = activePool;
+
+        let validCandidates = candidates.filter(cand => !willCauseRuleViolation(tempSeq, curB, cand, singleOnly));
+
+        if (validCandidates.length === 0) {
+          failed = true;
+          break; 
+        }
+
+        const chosen = validCandidates[Math.floor(Math.random() * validCandidates.length)];
+        const clonedChosen = Object.assign({}, chosen, {
+          notes: chosen.notes.map(n => Object.assign({}, n))
+        });
+        tempSeq.push(clonedChosen);
+        curB += chosen.beats;
+      }
+
+      if (!failed && curB >= totalBeats) {
+        finalSeq = tempSeq;
+        break;
+      }
+    }
+
+    if (finalSeq.length === 0) {
+      let curB = 0;
+      while (curB < totalBeats) {
+        const chosen = activePool[Math.floor(Math.random() * activePool.length)];
+        finalSeq.push(Object.assign({}, chosen, { notes: chosen.notes.map(n => Object.assign({}, n)) }));
+        curB += chosen.beats;
+      }
+    }
+
+    currentGeneratedSequence = finalSeq;
+    renderMainScore();
+  };
+
+  function renderMainScore() {
+    const container = document.getElementById('paperSvgContainer');
+    if (!currentGeneratedSequence || currentGeneratedSequence.length === 0) return;
+    currentGeneratedSequence.forEach((item, idx) => item._renderIdx = idx);
+
+    const showSticking = document.getElementById('toggleSticking').checked;
+    const showNames = document.getElementById('toggleNames').checked;
+    const showAccents = document.getElementById('toggleAccents').checked;
+
+    const measures = [];
+    let currentMeasure = [], currentMBeats = 0;
+    currentGeneratedSequence.forEach(item => {
+      currentMeasure.push(item);
+      currentMBeats += item.beats;
+      if (currentMBeats >= 4) {
+        measures.push(currentMeasure);
+        currentMeasure = [];
+        currentMBeats = 0;
+      }
+    });
+    if (currentMeasure.length > 0) measures.push(currentMeasure);
+
+    const lines = [];
+    for (let i = 0; i < measures.length; i += measuresPerLine) {
+      lines.push(measures.slice(i, i + measuresPerLine));
+    }
+
+    const svgWidth = 740, lineHeight = 180;
+    const svgHeight = lines.length * lineHeight + 50;
+    const scaleFactor = measuresPerLine === 1 ? 1.15 : (measuresPerLine === 2 ? 1.0 : 0.85);
+    let svgElements = [];
+
+    lines.forEach((lineMeasures, lineIdx) => {
+      const lineStaffY = 75 + (lineIdx * lineHeight);
+      const leftMargin = 40, rightMargin = svgWidth - 16;
+      const usableWidth = rightMargin - leftMargin;
+
+      svgElements.push(`
+        <line x1="20" y1="${lineStaffY - 16}" x2="20" y2="${lineStaffY + 16}" stroke="#0f172a" stroke-width="3"/>
+        <line x1="26" y1="${lineStaffY - 16}" x2="26" y2="${lineStaffY + 16}" stroke="#0f172a" stroke-width="3"/>
+      `);
+
+      const measureWidth = usableWidth / lineMeasures.length;
+      lineMeasures.forEach((measureItems, mIdx) => {
+        const measureStartX = leftMargin + (mIdx * measureWidth);
+        const measureEndX = measureStartX + measureWidth;
+        const isEnd = (lineIdx * measuresPerLine + mIdx + 1 === measures.length);
+
+        svgElements.push(`<line x1="${measureEndX}" y1="${lineStaffY - 24}" x2="${measureEndX}" y2="${lineStaffY + 24}" stroke="#0f172a" stroke-width="${isEnd ? 4 : 2}"/>`);
+        if (isEnd) svgElements.push(`<line x1="${measureEndX - 5}" y1="${lineStaffY - 24}" x2="${measureEndX - 5}" y2="${lineStaffY + 24}" stroke="#0f172a" stroke-width="1.5"/>`);
+
+        const pixelsPerBeat = (measureWidth - 10) / 4;
+        let currentItemX = measureStartX + 5;
+
+        measureItems.forEach(rudiment => {
+          const itemWidth = rudiment.beats * pixelsPerBeat;
+          const totalSlots = (rudiment.type === 'sextuplet' || rudiment.type === 'triplet_drag' || (rudiment.notes && rudiment.notes.length === 6)) ? 6 : (rudiment.type === 'triplet' ? 3 : 4);
+          const slotSpacing = (itemWidth - 10) / Math.max(totalSlots, 1);
+
+          if (showNames && rudiment.name) {
+            const badgeW = Math.max(itemWidth - 4, 24);
+            const badgeY = lineStaffY - (68 * scaleFactor);
+            const pDiddleLabel = badgeW >= 115 ? 'Paradiddle-Diddle' : 'Diddle-Diddle';
+            const fPDiddleLabel = badgeW >= 125 ? 'Flam Paradiddle-Diddle' : 'Flam Para-Diddle';
+            let displayName = rudiment.name
+              .replace('Flam Paradiddle-Diddle', fPDiddleLabel)
+              .replace('Inverted Flam Tap', 'Inv Flam Tap')
+              .replace('Single Stroke Roll', 'Single Stroke')
+              .replace('Double Stroke Roll', 'Double Stroke')
+              .replace('Single Paradiddle', 'Paradiddle')
+              .replace('Inward Paradiddle', 'Inward Para')
+              .replace('Reverse Paradiddle', 'Reverse Para')
+              .replace('Outward Paradiddle', 'Outward Para')
+              .replace('Double Paradiddle', 'Double Para')
+              .replace('Swiss Army Triplet', 'Swiss Triplet')
+              .replace('Flam Paradiddle', 'Flam Para')
+              .replace('Flammed Mill', 'Flam Mill')
+              .replace('Single Stroke Four', 'Single 4')
+              .replace('Six Stroke Roll', '6-Stroke')
+              .replace('Seven Stroke Roll', '7-Stroke')
+              .replace('Paradiddle-Diddle', pDiddleLabel);
+
+            const autoFontSize = Math.min(9.5, Math.max(7.5, (badgeW - 6) / (displayName.length * 0.58)));
+
+            svgElements.push(`
+              <rect x="${currentItemX + 2}" y="${badgeY}" width="${badgeW}" height="17" rx="4" fill="#f8fafc" stroke="#cbd5e1" stroke-width="0.8"/>
+              <text x="${currentItemX + 2 + badgeW / 2}" y="${badgeY + 12}" text-anchor="middle" font-size="${autoFontSize.toFixed(1)}" font-weight="700" fill="#0369a1">${displayName}</text>
+            `);
+          }
+
+          const notePoints = [];
+          rudiment.notes.forEach((note, nIdx) => {
+            const slot = note.slot !== undefined ? note.slot : nIdx;
+            const nx = currentItemX + 5 + (slot * slotSpacing) + (slotSpacing / 2);
+            notePoints.push({ x: nx, y: lineStaffY, note: note });
+            const handColor = note.sticking === 'R' ? '#dc2626' : '#2563eb';
+
+            const is6Tuplet = (rudiment.notes && rudiment.notes.length === 6);
+            const curRx = (is6Tuplet ? 4.8 : 5.8) * scaleFactor;
+            const curRy = (is6Tuplet ? 3.6 : 4.4) * scaleFactor;
+            svgElements.push(`<ellipse cx="${nx}" cy="${lineStaffY}" rx="${curRx}" ry="${curRy}" fill="#0f172a" transform="rotate(-20 ${nx} ${lineStaffY})"/>`);
+            const stemX = nx + (4 * scaleFactor);
+            const stemTop = lineStaffY - (28 * scaleFactor);
+            svgElements.push(`<line x1="${stemX}" y1="${lineStaffY}" x2="${stemX}" y2="${stemTop}" stroke="#0f172a" stroke-width="1.6"/>`);
+
+            if (note.isFlam) {
+              const flamX = nx - (8.5 * scaleFactor);
+              const flamY = lineStaffY - (1.2 * scaleFactor);
+              const gStemX = flamX + (2.0 * scaleFactor);
+              const gStemTop = lineStaffY - (16 * scaleFactor);
+
+              svgElements.push(`<ellipse cx="${flamX}" cy="${flamY}" rx="${3.4 * scaleFactor}" ry="${2.5 * scaleFactor}" fill="#0f172a" transform="rotate(-20 ${flamX} ${flamY})"/>`);
+              svgElements.push(`<line x1="${gStemX}" y1="${flamY}" x2="${gStemX}" y2="${gStemTop}" stroke="#0f172a" stroke-width="${1.2 * scaleFactor}"/>`);
+              svgElements.push(`<path d="M ${gStemX} ${gStemTop} C ${gStemX + 4.2*scaleFactor} ${gStemTop + 2*scaleFactor} ${gStemX + 5.5*scaleFactor} ${gStemTop + 8.5*scaleFactor} ${gStemX + 2.2*scaleFactor} ${gStemTop + 11.5*scaleFactor} C ${gStemX + 4.0*scaleFactor} ${gStemTop + 7.8*scaleFactor} ${gStemX + 2.8*scaleFactor} ${gStemTop + 3.2*scaleFactor} ${gStemX} ${gStemTop + 1*scaleFactor} Z" fill="#0f172a"/>`);
+              svgElements.push(`<line x1="${gStemX - 3.4*scaleFactor}" y1="${gStemTop + 8.2*scaleFactor}" x2="${gStemX + 4.6*scaleFactor}" y2="${gStemTop + 3.2*scaleFactor}" stroke="#0f172a" stroke-width="${1.2 * scaleFactor}"/>`);
+              svgElements.push(`<path d="M ${flamX - 0.8*scaleFactor} ${flamY + 3.8*scaleFactor} Q ${(flamX + nx)/2} ${flamY + 7.6*scaleFactor} ${nx - 2.2*scaleFactor} ${lineStaffY + 4.2*scaleFactor}" fill="none" stroke="#0f172a" stroke-width="${1.2 * scaleFactor}" stroke-linecap="round"/>`);
+            }
+
+            if ((rudiment.type === 'isolated' || rudiment.notes.length === 1) && note.dur) {
+              svgElements.push(renderFlagSvg(stemX, stemTop, note.dur, scaleFactor));
+            }
+
+            if (note.dur === 'dotted_8th') {
+              svgElements.push(`<circle cx="${nx + 10 * scaleFactor}" cy="${lineStaffY - 1}" r="${2.2 * scaleFactor}" fill="#0f172a"/>`);
+            }
+
+            if (showAccents && note.accent) {
+              svgElements.push(`<text x="${nx + 1}" y="${lineStaffY - 35 * scaleFactor}" font-size="${Math.round(18 * scaleFactor)}" font-weight="900" fill="#0f172a" text-anchor="middle">&gt;</text>`);
+            }
+
+            if (showSticking) {
+              svgElements.push(`<text x="${nx}" y="${lineStaffY + 24 * scaleFactor}" font-weight="900" font-size="${Math.round(14 * scaleFactor)}" fill="${handColor}" text-anchor="middle">${note.sticking}</text>`);
+
+            if (isCustomEditMode) {
+              const boxW = 26 * scaleFactor;
+              const boxX = nx - (boxW / 2);
+              const topY = lineStaffY - (42 * scaleFactor);
+              const topH = 34 * scaleFactor;  
+              const botY = lineStaffY - (8 * scaleFactor);
+              const botH = 36 * scaleFactor;  
+
+              svgElements.push(`<rect x="${boxX}" y="${topY}" width="${boxW}" height="${topH}" fill="transparent" style="cursor:pointer;" title="點擊切換重音" onclick="toggleNoteAccent(${rudiment._renderIdx}, ${nIdx})"/>`);
+              svgElements.push(`<rect x="${boxX}" y="${botY}" width="${boxW}" height="${botH}" fill="transparent" style="cursor:pointer;" title="點擊切換 R/L 手法" onclick="toggleNoteSticking(${rudiment._renderIdx}, ${nIdx})"/>`);
+            }
+            }
+          });
+
+          if (rudiment.rests) {
+            rudiment.rests.forEach(rst => {
+              const rx = rudiment.type === 'rest' 
+                ? (currentItemX + itemWidth / 2)
+                : (currentItemX + 5 + (rst.slot * slotSpacing) + (slotSpacing / 2));
+              svgElements.push(renderRestSvg(rx, lineStaffY, rst.type, scaleFactor));
+            });
+          }
+
+          const beatCenterX = currentItemX + (itemWidth / 2);
+          const tupletNumY = lineStaffY - (31 * scaleFactor);
+          if (rudiment.type === 'triplet' || rudiment.type === 'triplet_drag') {
+            svgElements.push(`<text x="${beatCenterX}" y="${tupletNumY}" font-size="${Math.round(10.5 * scaleFactor)}" font-weight="900" fill="#0f172a" text-anchor="middle">3</text>`);
+          } else if (rudiment.type === 'sextuplet') {
+            svgElements.push(`<text x="${beatCenterX}" y="${tupletNumY}" font-size="${Math.round(10.5 * scaleFactor)}" font-weight="900" fill="#0f172a" text-anchor="middle">6</text>`);
+          }
+
+          const bY1 = lineStaffY - (28 * scaleFactor);
+          const bY2 = lineStaffY - (23 * scaleFactor);
+
+          if (rudiment.type === 'beamed' && notePoints.length >= 2) {
+            const p0 = notePoints[r.beamPrimary[0]], p1 = notePoints[r.beamPrimary[1]];
+            svgElements.push(`<line x1="${p0.x + 4 * scaleFactor}" y1="${bY1}" x2="${p1.x + 4 * scaleFactor}" y2="${bY1}" stroke="#0f172a" stroke-width="3"/>`);
+            if (rudiment.beamSecFull) {
+              const s0 = notePoints[r.beamSecFull[0]], s1 = notePoints[r.beamSecFull[1]];
+              svgElements.push(`<line x1="${s0.x + 4 * scaleFactor}" y1="${bY2}" x2="${s1.x + 4 * scaleFactor}" y2="${bY2}" stroke="#0f172a" stroke-width="2.5"/>`);
+            }
+            if (rudiment.beamSecPartial) {
+              const pNode = notePoints[r.beamSecPartial[0]];
+              const pLen = rudiment.beamSecPartial[1] * scaleFactor;
+              svgElements.push(`<line x1="${pNode.x + 4 * scaleFactor}" y1="${bY2}" x2="${pNode.x + 4 * scaleFactor + pLen}" y2="${bY2}" stroke="#0f172a" stroke-width="2.5"/>`);
+            }
+          } else if (rudiment.type === 'triplet' && notePoints.length >= 2) {
+            const firstX = notePoints[0].x + 4 * scaleFactor, lastX = notePoints[notePoints.length - 1].x + 4 * scaleFactor;
+            svgElements.push(`<line x1="${firstX}" y1="${bY1}" x2="${lastX}" y2="${bY1}" stroke="#0f172a" stroke-width="3"/>`);
+          } else if (rudiment.type === 'triplet_drag' && notePoints.length >= 4) {
+            const firstX = notePoints[0].x + 4 * scaleFactor, lastX = notePoints[3].x + 4 * scaleFactor;
+            svgElements.push(`<line x1="${firstX}" y1="${bY1}" x2="${lastX}" y2="${bY1}" stroke="#0f172a" stroke-width="3"/>`);
+            const d1X = notePoints[1].x + 4 * scaleFactor, d2X = notePoints[2].x + 4 * scaleFactor;
+            svgElements.push(`<line x1="${d1X}" y1="${bY2}" x2="${d2X}" y2="${bY2}" stroke="#0f172a" stroke-width="2.5"/>`);
+          } else if (rudiment.type === 'sextuplet' && notePoints.length >= 2) {
+            const firstX = notePoints[0].x + 4 * scaleFactor, lastX = notePoints[notePoints.length - 1].x + 4 * scaleFactor;
+            svgElements.push(`<line x1="${firstX}" y1="${bY1}" x2="${lastX}" y2="${bY1}" stroke="#0f172a" stroke-width="3"/>`);
+            svgElements.push(`<line x1="${firstX}" y1="${bY2}" x2="${lastX}" y2="${bY2}" stroke="#0f172a" stroke-width="2.5"/>`);
+          } else if (rudiment.type === '16th' && notePoints.length >= 2) {
+            const firstX = notePoints[0].x + 4 * scaleFactor, lastX = notePoints[notePoints.length - 1].x + 4 * scaleFactor;
+            svgElements.push(`<line x1="${firstX}" y1="${bY1}" x2="${lastX}" y2="${bY1}" stroke="#0f172a" stroke-width="3"/>`);
+            svgElements.push(`<line x1="${firstX}" y1="${bY2}" x2="${lastX}" y2="${bY2}" stroke="#0f172a" stroke-width="2.5"/>`);
+          }
+
+          currentItemX += itemWidth;
+        });
+      });
+    });
+
+    container.innerHTML = `<svg class="main-score-svg" viewBox="0 0 ${svgWidth} ${svgHeight}">${svgElements.join('')}</svg>`;
+  }
+
+  // 節拍器
+  let audioCtx = null, isMetronomeRunning = false, metroTimer = null, nextNoteTime = 0.0, metroBeatIndex = 0;
+  function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+  function playClick(isHigh) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+    osc.type = 'triangle'; osc.frequency.value = isHigh ? 1300 : 850;
+    gain.gain.setValueAtTime(1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+  }
+  window.scheduleMetro = function() {
+    while (nextNoteTime < audioCtx.currentTime + 0.1) {
+      const bpmToUse = (typeof currentBpm !== 'undefined') ? currentBpm : 90;
+      playClick(metroBeatIndex % 4 === 0);
+      metroBeatIndex++;
+      nextNoteTime += 60.0 / bpmToUse;
+    }
+    metroTimer = setTimeout(scheduleMetro, 25);
+  };
+  document.getElementById('btnMetroToggle').addEventListener('click', function() {
+    initAudio();
+    if (isMetronomeRunning) {
+      isMetronomeRunning = false; clearTimeout(metroTimer);
+      this.innerText = '▶'; this.style.background = '#22c55e';
+    } else {
+      isMetronomeRunning = true; metroBeatIndex = 0; nextNoteTime = audioCtx.currentTime + 0.05;
+      scheduleMetro(); this.innerText = '⏹'; this.style.background = '#ef4444';
+    }
+  });
+
+  let currentBpm = 90;
+  const bpmLabel = document.getElementById('metroBpmLabel');
+
+  function updateBpm(newBpm) {
+    currentBpm = Math.max(40, Math.min(300, newBpm));
+    if(bpmLabel) bpmLabel.innerText = currentBpm;
+  }
+
+  window.editBpm = function() {
+    if (!isMetronomeRunning) initAudio(); 
+    const input = prompt("請輸入 BPM (40-300):", currentBpm);
+    if (input !== null) {
+      const parsed = parseInt(input, 10);
+      if (!isNaN(parsed)) updateBpm(parsed);
+    }
+  };
+
+  function setupBpmButton(btnId, delta) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    
+    let pressTimer;
+    let intervalTimer;
+    let hasLongPressed = false;
+    let isPressed = false;
+    
+    const startChange = (e) => {
+      if (isPressed) return;
+      isPressed = true;
+      hasLongPressed = false;
+      
+      pressTimer = setTimeout(() => {
+        hasLongPressed = true;
+        updateBpm(currentBpm + (delta * 10));
+        intervalTimer = setInterval(() => {
+          updateBpm(currentBpm + (delta * 10));
+        }, 150);
+      }, 400);
+    };
+    
+    const stopChange = (e) => {
+      if (!isPressed) return;
+      isPressed = false;
+      
+      clearTimeout(pressTimer);
+      clearInterval(intervalTimer);
+      
+      if (!hasLongPressed) {
+        updateBpm(currentBpm + delta);
+      }
+      hasLongPressed = false;
+    };
+
+    btn.addEventListener('mousedown', startChange);
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); startChange(e); }, { passive: false });
+    
+    btn.addEventListener('mouseup', stopChange);
+    btn.addEventListener('mouseleave', stopChange);
+    btn.addEventListener('touchend', stopChange);
+    btn.addEventListener('touchcancel', stopChange);
+  }
+
+  setupBpmButton('btnBpmMinus', -1);
+  setupBpmButton('btnBpmPlus', 1);
+
+  
+function toggleCustomEditMode() {
+    isCustomEditMode = !isCustomEditMode;
+    const btn = document.getElementById('btnCustomEdit');
+    const banner = document.getElementById('customEditBanner');
+    const selectLine = document.getElementById('selectMeasuresPerLine');
+    const checkSingle = document.getElementById('checkSingleOnly');
+
+    if (isCustomEditMode) {
+      if (btn) {
+        btn.innerText = '✓ 完成自定義';
+        btn.style.background = '#22c55e';
+        btn.style.boxShadow = '0 4px 14px rgba(34,197,94,0.35)';
+      }
+      if (banner) banner.style.display = 'flex';
+      if (selectLine) { selectLine.disabled = true; selectLine.style.opacity = '0.5'; }
+      if (checkSingle) { checkSingle.disabled = true; checkSingle.style.opacity = '0.5'; }
+    } else {
+      if (btn) {
+        btn.innerText = '✏️ 自定義';
+        btn.style.background = '#475569';
+        btn.style.boxShadow = '0 4px 14px rgba(71,85,105,0.35)';
+      }
+      if (banner) banner.style.display = 'none';
+      if (selectLine) { selectLine.disabled = false; selectLine.style.opacity = '1'; }
+      if (checkSingle) { checkSingle.disabled = false; checkSingle.style.opacity = '1'; }
+    }
+    renderMainScore();
+    renderRudimentCardsInDrawer();
+  }
+
+  function swapAllStickings() {
+    if (!currentGeneratedSequence || currentGeneratedSequence.length === 0) return;
+    currentGeneratedSequence.forEach(item => {
+      if (item.notes) {
+        item.notes.forEach(n => {
+          if (n.sticking === 'R') n.sticking = 'L';
+          else if (n.sticking === 'L') n.sticking = 'R';
+        });
+      }
+    });
+    const titleEl = document.getElementById('paperTitle');
+    if (titleEl && titleEl.innerText) {
+      titleEl.innerText = titleEl.innerText.replace(/ (R|L) /g, match => match === 'R' ? 'L' : 'R');
+    }
+    renderMainScore();
+  }
+
+  window.editPaperTitle = function() {
+    if (!isCustomEditMode) return;
+    const titleEl = document.getElementById('paperTitle');
+    const headerTitleEl = document.getElementById('appHeaderTitle');
+    const currentText = titleEl.innerText || 'Rudiment組合練習';
+    const newTitle = prompt('請輸入新的譜面標題：', currentText);
+    if (newTitle !== null && newTitle.trim() !== '') {
+      titleEl.innerText = newTitle.trim();
+      if (headerTitleEl) headerTitleEl.innerText = '🥁 ' + newTitle.trim();
+    }
+  };
+
+  function onTotalMeasuresChange() {
+    const newCount = parseInt(document.getElementById('selectTotalMeasures').value, 10) || 2;
+    selectedMeasureCount = newCount;
+
+    if (currentGeneratedSequence && currentGeneratedSequence.length > 0) {
+      const currentMeasures = getMeasuresArray(currentGeneratedSequence);
+      if (newCount > currentMeasures.length) {
+        const restItem = RUDIMENTS_DB.find(r => r.id === 'b_rest_quarter');
+        for (let m = currentMeasures.length; m < newCount; m++) {
+          for (let b = 0; b < 4; b++) {
+            currentGeneratedSequence.push(restItem);
+          }
+        }
+      } else if (newCount < currentMeasures.length) {
+        const targetBeats = newCount * 4;
+        let curB = 0;
+        let truncated = [];
+        for (let item of currentGeneratedSequence) {
+          if (curB + item.beats <= targetBeats) {
+            truncated.push(item);
+            curB += item.beats;
+          } else {
+            break;
+          }
+        }
+        currentGeneratedSequence = truncated;
+      }
+      renderMainScore();
+    } else {
+      generateNewExercise();
+    }
+  }
+
+  function getMeasuresArray(seq) {
+    const measures = [];
+    let curM = [], curB = 0;
+    seq.forEach(item => {
+      curM.push(item);
+      curB += item.beats;
+      if (curB >= 4) {
+        measures.push(curM);
+        curM = [];
+        curB = 0;
+      }
+    });
+    if (curM.length > 0) measures.push(curM);
+    return measures;
+  }
+
+
+  function toggleNoteAccent(itemIdx, nIdx) {
+    if (!isCustomEditMode) return;
+    const item = currentGeneratedSequence[itemIdx];
+    if (item && item.notes && item.notes[nIdx]) {
+      item.notes[nIdx].accent = !item.notes[nIdx].accent;
+      renderMainScore();
+    }
+  }
+
+  function toggleNoteSticking(itemIdx, nIdx) {
+    if (!isCustomEditMode) return;
+    const item = currentGeneratedSequence[itemIdx];
+    if (item && item.notes && item.notes[nIdx]) {
+      const cur = item.notes[nIdx].sticking;
+      item.notes[nIdx].sticking = (cur === 'R' ? 'L' : 'R');
+      renderMainScore();
+    }
+  }
+
+  let isDragging = false;
+  let dragGhost = null;
+  let dragInfo = null;
+
+  window.startCustomDrag = function(e, rId, vIdx) {
+    if (!isCustomEditMode) return;
+    isDragging = true;
+    dragInfo = { rId, vIdx };
+    
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+    const svgContainerId = `svg-ghost-${rId}-${vIdx}`;
+    const svgHtml = document.getElementById(svgContainerId).innerHTML;
+
+    dragGhost = document.createElement('div');
+    dragGhost.innerHTML = svgHtml;
+    dragGhost.style.position = 'fixed';
+    dragGhost.style.pointerEvents = 'none';
+    dragGhost.style.zIndex = '99999';
+    dragGhost.style.background = '#ffffff';
+    dragGhost.style.border = vIdx === 0 ? '2.5px solid #dc2626' : (vIdx === 1 ? '2.5px solid #2563eb' : '2.5px solid #64748b');
+    dragGhost.style.borderRadius = '8px';
+    dragGhost.style.padding = '6px';
+    dragGhost.style.boxShadow = '0 10px 25px rgba(0,0,0,0.3)';
+    
+    document.body.appendChild(dragGhost);
+    
+    const rect = dragGhost.getBoundingClientRect();
+    dragGhost.style.left = (clientX - rect.width / 2) + 'px';
+    dragGhost.style.top = (clientY - rect.height / 2) + 'px';
+
+    closeOptionsDrawer(); 
+    
+    if (e.type === 'touchstart' && e.cancelable) {
+       e.preventDefault();
+    }
+  };
+
+  document.addEventListener('touchmove', function(e) {
+    if (!isDragging || !dragGhost) return;
+    if (e.cancelable) e.preventDefault();
+    const clientX = e.touches[0].clientX;
+    const clientY = e.touches[0].clientY;
+    const rect = dragGhost.getBoundingClientRect();
+    dragGhost.style.left = (clientX - rect.width / 2) + 'px';
+    dragGhost.style.top = (clientY - rect.height / 2) + 'px';
+  }, { passive: false });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!isDragging || !dragGhost) return;
+    e.preventDefault();
+    const clientX = e.clientX;
+    const clientY = e.clientY;
+    const rect = dragGhost.getBoundingClientRect();
+    dragGhost.style.left = (clientX - rect.width / 2) + 'px';
+    dragGhost.style.top = (clientY - rect.height / 2) + 'px';
+  });
+
+  function endDrag(e) {
+    if (!isDragging) return;
+    isDragging = false;
+    
+    const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+    const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+
+    if (dragGhost) {
+      dragGhost.remove();
+      dragGhost = null;
+    }
+
+    const container = document.getElementById('paperSvgContainer');
+    if (!container) return;
+    
+    const rect = container.getBoundingClientRect();
+    if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+       const totalBeats = selectedMeasureCount * 4;
+       
+       const showNames = document.getElementById('toggleNames').checked;
+       const lineHeight = showNames ? 180 : 135;
+       const svgWidth = 740;
+       
+       const svgScale = rect.width / svgWidth;
+       const internalX = (clientX - rect.left) / svgScale;
+       const internalY = (clientY - rect.top) / svgScale;
+
+       const lineIdx = Math.floor(internalY / lineHeight);
+       const maxLines = Math.ceil((totalBeats / 4) / measuresPerLine);
+       
+       if (lineIdx >= 0 && lineIdx < maxLines) {
+          const leftMargin = 40;
+          const usableWidth = svgWidth - 16 - leftMargin;
+          const measureWidth = usableWidth / measuresPerLine;
+          
+          const relX = internalX - leftMargin;
+          if (relX >= 0 && relX <= usableWidth) {
+             const mIdxOnLine = Math.floor(relX / measureWidth);
+             const relXInMeasure = relX - (mIdxOnLine * measureWidth);
+             const beatIdxInMeasure = Math.floor((relXInMeasure / measureWidth) * 4);
+             
+             const globalMeasureIdx = lineIdx * measuresPerLine + mIdxOnLine;
+             const globalBeatIdx = globalMeasureIdx * 4 + beatIdxInMeasure;
+             
+             if (globalBeatIdx < totalBeats) {
+                applyDropToBeat(globalBeatIdx, dragInfo.rId, dragInfo.vIdx);
+             }
+          }
+       }
+    }
+    dragInfo = null;
+  }
+
+  document.addEventListener('touchend', endDrag);
+  document.addEventListener('mouseup', endDrag);
+
+  function applyDropToBeat(beatIndex, rId, vIdx) {
+    const baseObj = RUDIMENTS_DB.find(r => r.id === rId);
+    if (!baseObj) return;
+
+    let newItem = baseObj;
+    if (vIdx !== null && baseObj.variants && baseObj.variants[vIdx]) {
+      newItem = baseObj.variants[vIdx];
+    } else if (baseObj.variants && baseObj.variants.length > 0) {
+      newItem = baseObj.variants[0];
+    }
+
+    const cloned = Object.assign({}, newItem, {
+      notes: newItem.notes.map(n => Object.assign({}, n))
+    });
+
+    while (currentGeneratedSequence.length <= beatIndex) {
+      const restItem = RUDIMENTS_DB.find(r => r.id === 'b_rest_quarter');
+      currentGeneratedSequence.push(restItem);
+    }
+
+    currentGeneratedSequence[beatIndex] = cloned;
+    renderMainScore();
+  }
+
+  // 初始載入
+  renderRudimentCardsInDrawer();
+</script>
+</body>
+</html>
