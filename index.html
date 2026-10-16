@@ -156,16 +156,16 @@
     display: none;
     position: absolute;
     left: 0;
-    bottom: 10px;
-    font-size: 0.75rem;
+    bottom: 8px;
+    font-size: 1.1rem;
     font-weight: 700;
     color: #0f172a;
     align-items: center;
-    gap: 3px;
+    gap: 4px;
   }
   .print-bpm-display svg {
-    width: 9.5px;
-    height: 16px;
+    width: 14px;
+    height: 24px;
   }
   .print-bpm-display.show {
     display: flex;
@@ -642,13 +642,15 @@
     { id: 'b_and', name: '&', category: '基礎', beats: 1, type: 'isolated', notes: [{ slot: 2, sticking: 'R', accent: false, dur: '8th' }], rests: [{ slot: 0.5, type: '8th' }] },
     { id: 'b_a', name: 'a', category: '基礎', beats: 1, type: 'isolated', notes: [{ slot: 3, sticking: 'L', accent: false, dur: '16th' }], rests: [{ slot: 0.8, type: 'dotted_8th' }] },
     { id: 'b_1_and', name: '1 &', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 1], notes: [ { slot: 0, sticking: 'R', accent: false, dur: '8th' }, { slot: 2, sticking: 'L', accent: false, dur: '8th' } ] },
+    { id: 'b_e_a', name: 'e a', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 1], beamSecPartial: [1, -14], rests: [{ slot: 0, type: '16th' }], notes: [ { slot: 1, sticking: 'L', accent: false, dur: '8th' }, { slot: 3, sticking: 'L', accent: false, dur: '16th' } ] },
     { id: 'b_1_e', name: '1 e', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 1], beamSecPartial: [0, 14], notes: [ { slot: 0, sticking: 'R', accent: false, dur: '16th' }, { slot: 1, sticking: 'L', accent: false, dur: 'dotted_8th' } ] },
     { id: 'b_e_and', name: 'e &', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 1], beamSecPartial: [0, 14], rests: [{ slot: 0, type: '16th' }], notes: [ { slot: 1, sticking: 'L', accent: false, dur: '16th' }, { slot: 2, sticking: 'R', accent: false, dur: '8th' } ] },
-    { id: 'b_e_a', name: 'e a', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 1], beamSecPartial: [1, -14], rests: [{ slot: 0, type: '16th' }], notes: [ { slot: 1, sticking: 'L', accent: false, dur: '8th' }, { slot: 3, sticking: 'L', accent: false, dur: '16th' } ] },
     { id: 'b_and_a', name: '& a', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 1], beamSecFull: [0, 1], rests: [{ slot: 0.5, type: '8th' }], notes: [ { slot: 2, sticking: 'R', accent: false, dur: '16th' }, { slot: 3, sticking: 'L', accent: false, dur: '16th' } ] },
+    { id: 'b_1_a', name: '1 a', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 1], beamSecPartial: [1, -14], notes: [ { slot: 0, sticking: 'R', accent: false, dur: 'dotted_8th' }, { slot: 3, sticking: 'L', accent: false, dur: '16th' } ] },
     { id: 'b_1_e_and', name: '1 e &', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 2], beamSecFull: [0, 1], notes: [ { slot: 0, sticking: 'R', accent: false, dur: '16th' }, { slot: 1, sticking: 'L', accent: false, dur: '16th' }, { slot: 2, sticking: 'R', accent: false, dur: '8th' } ] },
-    { id: 'b_e_and_a', name: 'e & a', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 2], beamSecFull: [0, 2], rests: [{ slot: 0, type: '16th' }], notes: [ { slot: 1, sticking: 'L', accent: false, dur: '16th' }, { slot: 2, sticking: 'R', accent: false, dur: '16th' }, { slot: 3, sticking: 'L', accent: false, dur: '16th' } ] },
     { id: 'b_1_and_a', name: '1 & a', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 2], beamSecFull: [1, 2], notes: [ { slot: 0, sticking: 'R', accent: false, dur: '8th' }, { slot: 2, sticking: 'R', accent: false, dur: '16th' }, { slot: 3, sticking: 'L', accent: false, dur: '16th' } ] },
+    { id: 'b_1_e_a', name: '1 e a', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 2], beamSecPartial: [[0, 14], [2, -14]], notes: [ { slot: 0, sticking: 'R', accent: false, dur: '16th' }, { slot: 1, sticking: 'L', accent: false, dur: '8th' }, { slot: 3, sticking: 'L', accent: false, dur: '16th' } ] },
+    { id: 'b_e_and_a', name: 'e & a', category: '基礎', beats: 1, type: 'beamed', beamPrimary: [0, 2], beamSecFull: [0, 2], rests: [{ slot: 0, type: '16th' }], notes: [ { slot: 1, sticking: 'L', accent: false, dur: '16th' }, { slot: 2, sticking: 'R', accent: false, dur: '16th' }, { slot: 3, sticking: 'L', accent: false, dur: '16th' } ] },
     { id: 'b_16_full', name: '1 e & a', category: '基礎', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false } ] },
     { id: 'b_trip_2', name: 'Triplet', category: '基礎', beats: 1, type: 'triplet', notes: [{ slot: 1, sticking: 'R', accent: false, dur: '8th' }], rests: [{ slot: 0, type: '8th' }, { slot: 2, type: '8th' }], variants: [ { name: 'Triplet', beats: 1, type: 'triplet', notes: [{ slot: 1, sticking: 'R', accent: false, dur: '8th' }], rests: [{ slot: 0, type: '8th' }, { slot: 2, type: '8th' }] }, { name: 'Triplet', beats: 1, type: 'triplet', notes: [{ slot: 1, sticking: 'L', accent: false, dur: '8th' }], rests: [{ slot: 0, type: '8th' }, { slot: 2, type: '8th' }] } ] },
     { id: 'b_trip_3', name: 'Triplet', category: '基礎', beats: 1, type: 'triplet', notes: [{ slot: 2, sticking: 'R', accent: false, dur: '8th' }], rests: [{ slot: 0, type: '8th' }, { slot: 1, type: '8th' }], variants: [ { name: 'Triplet', beats: 1, type: 'triplet', notes: [{ slot: 2, sticking: 'R', accent: false, dur: '8th' }], rests: [{ slot: 0, type: '8th' }, { slot: 1, type: '8th' }] }, { name: 'Triplet', beats: 1, type: 'triplet', notes: [{ slot: 2, sticking: 'L', accent: false, dur: '8th' }], rests: [{ slot: 0, type: '8th' }, { slot: 1, type: '8th' }] } ] },
@@ -683,7 +685,7 @@
     { id: 'r_single_4', name: 'Single Stroke Roll', category: 'roll系列', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false } ], variants: [ { name: 'Single Stroke Roll R', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'R', accent: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false } ] }, { name: 'Single Stroke Roll L', beats: 1, type: '16th', notes: [ { slot: 0, sticking: 'L', accent: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'R', accent: false } ] } ] },
     { id: 'r_six_stroke', name: 'Six Stroke Roll', category: 'roll系列', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'R', accent: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'R', accent: false }, { slot: 4, sticking: 'R', accent: false }, { slot: 5, sticking: 'L', accent: true } ], variants: [ { name: 'Six Stroke Roll R', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'R', accent: true }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'R', accent: false }, { slot: 4, sticking: 'R', accent: false }, { slot: 5, sticking: 'L', accent: true } ] }, { name: 'Six Stroke Roll L', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'L', accent: true }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'L', accent: false }, { slot: 4, sticking: 'L', accent: false }, { slot: 5, sticking: 'R', accent: true } ] } ] },
     { id: 'r_seven_stroke', name: 'Seven Stroke Roll', category: 'roll系列', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'L', accent: false }, { slot: 4, sticking: 'R', accent: false }, { slot: 5, sticking: 'L', accent: true } ], variants: [ { name: 'Seven Stroke Roll R', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: false }, { slot: 3, sticking: 'L', accent: false }, { slot: 4, sticking: 'R', accent: false }, { slot: 5, sticking: 'L', accent: true } ] }, { name: 'Seven Stroke Roll L', beats: 1, type: 'sextuplet', notes: [ { slot: 0, sticking: 'L', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: false }, { slot: 3, sticking: 'R', accent: false }, { slot: 4, sticking: 'L', accent: false }, { slot: 5, sticking: 'R', accent: true } ] } ] },
-    { id: 'r_single_four', name: 'Single Stroke Four', category: 'roll系列', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: true } ], variants: [ { name: 'Single Stroke Four R', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: true } ] }, { name: 'Single Stroke Four L', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'L', accent: false }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: true } ] } ] }
+{ id: 'r_single_four', name: 'Single Stroke Four', category: 'roll系列', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: true } ], variants: [ { name: 'Single Stroke Four R', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'R', accent: false }, { slot: 1, sticking: 'L', accent: false }, { slot: 2, sticking: 'R', accent: true } ] }, { name: 'Single Stroke Four L', beats: 1, type: 'triplet', notes: [ { slot: 0, sticking: 'L', accent: false }, { slot: 1, sticking: 'R', accent: false }, { slot: 2, sticking: 'L', accent: true } ] } ] }
   ];
 
   let isCustomEditMode = false;
@@ -887,8 +889,15 @@
         svgParts.push(`<line x1="${s0.x + 4}" y1="${staffY - 16}" x2="${s1.x + 4}" y2="${staffY - 16}" stroke="#0f172a" stroke-width="2"/>`);
       }
       if (r.beamSecPartial) {
-        const pNode = notePoints[r.beamSecPartial[0]];
-        svgParts.push(`<line x1="${pNode.x + 4}" y1="${staffY - 16}" x2="${pNode.x + 4 + r.beamSecPartial[1]}" y2="${staffY - 16}" stroke="#0f172a" stroke-width="2"/>`);
+        if (Array.isArray(r.beamSecPartial[0])) {
+          r.beamSecPartial.forEach(bp => {
+            const pNode = notePoints[bp[0]];
+            svgParts.push(`<line x1="${pNode.x + 4}" y1="${staffY - 16}" x2="${pNode.x + 4 + bp[1]}" y2="${staffY - 16}" stroke="#0f172a" stroke-width="2"/>`);
+          });
+        } else {
+          const pNode = notePoints[r.beamSecPartial[0]];
+          svgParts.push(`<line x1="${pNode.x + 4}" y1="${staffY - 16}" x2="${pNode.x + 4 + r.beamSecPartial[1]}" y2="${staffY - 16}" stroke="#0f172a" stroke-width="2"/>`);
+        }
       }
     } else if (r.type === 'triplet' && notePoints.length >= 2) {
       const firstX = notePoints[0].x + 4, lastX = notePoints[notePoints.length - 1].x + 4;
@@ -1387,9 +1396,17 @@
               svgElements.push(`<line x1="${s0.x + 4 * scaleFactor}" y1="${bY2}" x2="${s1.x + 4 * scaleFactor}" y2="${bY2}" stroke="#0f172a" stroke-width="2.5"/>`);
             }
             if (rudiment.beamSecPartial) {
-              const pNode = notePoints[rudiment.beamSecPartial[0]];
-              const pLen = rudiment.beamSecPartial[1] * scaleFactor;
-              svgElements.push(`<line x1="${pNode.x + 4 * scaleFactor}" y1="${bY2}" x2="${pNode.x + 4 * scaleFactor + pLen}" y2="${bY2}" stroke="#0f172a" stroke-width="2.5"/>`);
+              if (Array.isArray(rudiment.beamSecPartial[0])) {
+                rudiment.beamSecPartial.forEach(bp => {
+                  const pNode = notePoints[bp[0]];
+                  const pLen = bp[1] * scaleFactor;
+                  svgElements.push(`<line x1="${pNode.x + 4 * scaleFactor}" y1="${bY2}" x2="${pNode.x + 4 * scaleFactor + pLen}" y2="${bY2}" stroke="#0f172a" stroke-width="2.5"/>`);
+                });
+              } else {
+                const pNode = notePoints[rudiment.beamSecPartial[0]];
+                const pLen = rudiment.beamSecPartial[1] * scaleFactor;
+                svgElements.push(`<line x1="${pNode.x + 4 * scaleFactor}" y1="${bY2}" x2="${pNode.x + 4 * scaleFactor + pLen}" y2="${bY2}" stroke="#0f172a" stroke-width="2.5"/>`);
+              }
             }
           } else if (rudiment.type === 'triplet' && notePoints.length >= 2) {
             const firstX = notePoints[0].x + 4 * scaleFactor, lastX = notePoints[notePoints.length - 1].x + 4 * scaleFactor;
