@@ -1741,8 +1741,7 @@ function toggleCustomEditMode() {
     if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
        const totalBeats = selectedMeasureCount * 4;
        
-       const showNames = document.getElementById('toggleNames').checked;
-       const lineHeight = showNames ? 180 : 135;
+       const lineHeight = 180;
        const svgWidth = 740;
        
        const svgScale = rect.width / svgWidth;
@@ -1759,9 +1758,9 @@ function toggleCustomEditMode() {
           
           const relX = internalX - leftMargin;
           if (relX >= 0 && relX <= usableWidth) {
-             const mIdxOnLine = Math.floor(relX / measureWidth);
+             const mIdxOnLine = Math.min(Math.floor(relX / measureWidth), measuresPerLine - 1);
              const relXInMeasure = relX - (mIdxOnLine * measureWidth);
-             const beatIdxInMeasure = Math.floor((relXInMeasure / measureWidth) * 4);
+             const beatIdxInMeasure = Math.min(Math.floor((relXInMeasure / measureWidth) * 4), 3);
              
              const globalMeasureIdx = lineIdx * measuresPerLine + mIdxOnLine;
              const globalBeatIdx = globalMeasureIdx * 4 + beatIdxInMeasure;
